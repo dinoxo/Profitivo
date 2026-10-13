@@ -59,6 +59,18 @@ flowchart TD
 2. **Aceptación de Contrato (Términos, Condiciones y Políticas de Privacidad):**
    - La aceptación es **estrictamente obligatoria** antes de poder ver las instrucciones de pago o acceder a la plataforma.
    - El sistema registra de manera inmutable: identificador de usuario, versión del contrato aceptado, dirección IP y marca temporal (*timestamp ISO-8601*).
+   - **Cláusulas Oficiales del Contrato:**
+     > *"Al adquirir, acceder o utilizar los cursos y contenidos de Profitivo, aceptas de forma implícita e incondicional los siguientes puntos:*
+     > 
+     > *1. Carácter 100% Educativo: Todo el material (clases, videos, guías, análisis y explicaciones) tiene un propósito estrictamente académico e informativo. Profitivo ni sus instructores prestan asesoramiento financiero, recomendaciones de inversión, gestión de capital ni servicios de corretaje (brokerage).*
+     > 
+     > *2. Advertencia de Riesgo Financiero: El comercio en mercados financieros (forex, criptomonedas, acciones, futuros, etc.) implica un alto riesgo de pérdida de capital. Los rendimientos pasados, análisis o ejemplos prácticos no garantizan ni aseguran resultados futuros. Eres el único y absoluto responsable de las decisiones operativas y financieras que tomes en tu cuenta personal.*
+     > 
+     > *3. Propiedad Intelectual y Licencia Personal: Al comprar el curso adquieres una licencia personal, individual e intransferible. Queda estrictamente prohibida la reventa, reproducción, distribución, transmisión o difusión del contenido en plataformas de terceros o grupos (Telegram, Discord, WhatsApp, etc.). La violación de esta norma derivará en la cancelación inmediata del acceso sin derecho a reembolso y posibles acciones legales.*
+     > 
+     > *4. Política de Pagos y Reembolsos: El acceso al curso digital se otorga de forma inmediata tras el pago. Debido a la naturaleza del contenido digital de consumo instantáneo, no se realizan devoluciones ni reembolsos una vez otorgado el acceso a la plataforma.*
+     > 
+     > *5. Limitación de Responsabilidad: La academia Profitivo queda eximida de cualquier responsabilidad por pérdidas económicas, daños directos o indirectos derivados del uso o aplicación de las estrategias, conocimientos o herramientas enseñadas dentro de la academia."*
 
 ### RN-02: Modelo de Monetización Manual con Aprobación Administrativa
 1. **Configuración de Métodos de Pago por los Administradores:**
