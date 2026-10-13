@@ -868,7 +868,8 @@
       }
 
       btn.disabled = true;
-      btn.textContent = courseId ? "⏳ Actualizando Curso..." : "⏳ Subiendo y Guardando Curso...";
+      btn.textContent = videoFile ? "⏳ Subiendo video a GitHub CDN..." : (courseId ? "⏳ Actualizando Curso..." : "⏳ Guardando Curso...");
+      statusDiv.textContent = videoFile ? "⏳ Subiendo archivo al CDN de la empresa (puneta29/profitivo-videos)... No cierres la ventana." : "⏳ Procesando curso...";
       statusDiv.style.display = 'block';
 
       const isLifetime = document.getElementById('course-access-type').value === 'LIFETIME';

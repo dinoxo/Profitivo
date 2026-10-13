@@ -840,6 +840,63 @@ const ProfitivoAPI = {
     return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_COURSES) || '[]');
   },
 
+  // Subida de Videos a GitHub CDN Oficial de la Empresa (puneta29/profitivo-videos)
+  uploadVideoToGitHub: async (videoFile) => {
+    const filename = videoFile.name || ('video_' + Date.now() + '.mp4');
+
+    // 1. Intentar a través del proxy de Cloudflare Pages Function (GitHub Releases, hasta 2GB por video)
+    try {
+      const res = await fetch(`/api/upload-video?filename=${encodeURIComponent(filename)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': videoFile.type || 'video/mp4'
+        },
+        body: videoFile
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.video_url) return data.video_url;
+      }
+    } catch (e) {
+      console.warn("Proxy video upload error, intentando subida directa:", e);
+    }
+
+    // 2. Subida directa a GitHub API (Contents API en puneta29/profitivo-videos)
+    try {
+      const cleanName = Date.now() + '_' + filename.replace(/[^a-zA-Z0-9_\.-]/g, '_');
+      const reader = new FileReader();
+      const base64Promise = new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(videoFile);
+      });
+
+      const b64 = await base64Promise;
+      const ghRes = await fetch(`https://api.github.com/repos/puneta29/profitivo-videos/contents/videos/${cleanName}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer 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',
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: 'Upload lesson video: ' + cleanName,
+          content: b64
+        })
+      });
+
+      if (ghRes.ok) {
+        const ghData = await ghRes.json();
+        return ghData.content.download_url;
+      }
+    } catch (e) {
+      console.warn("GitHub contents API error:", e);
+    }
+
+    // 3. Fallback de enlace local temporal si no hay conexión
+    return URL.createObjectURL(videoFile);
+  },
+
   saveCourse: async (courseData, videoFile) => {
     const isEdit = !!courseData.id;
     const courses = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_COURSES) || '[]');
@@ -847,7 +904,7 @@ const ProfitivoAPI = {
 
     let videoUrl = courseData.video_url || '';
     if (videoFile) {
-      videoUrl = URL.createObjectURL(videoFile);
+      videoUrl = await ProfitivoAPI.uploadVideoToGitHub(videoFile);
     } else if (isEdit && !videoUrl) {
       const existing = courses.find(c => c.id === courseId);
       if (existing) videoUrl = existing.video_url;
