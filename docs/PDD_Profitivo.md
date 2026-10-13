@@ -131,6 +131,7 @@ Cuando el usuario entra a la web, la primera pantalla despliega de forma impacta
 - **Bloque Misión y Visión:** Tarjetas visuales que transmiten los valores, el propósito y el horizonte de la academia.
 - **Bloque de Propuesta Educativa ("Cursos que Enriquecen tu Conocimiento"):** Destaca cómo la formación en criptomonedas, tecnología, finanzas digitales y diseño UI/UX empodera a los usuarios con habilidades prácticas y rentables.
 - **Preview del Catálogo de Cursos:** Tarjetas con las formaciones disponibles, temarios y badges informativos.
+- **Zona de Redes Sociales y Comunidad Oficial:** Enlaces y tarjetas interactivas de **TikTok**, **X (Twitter)**, **Telegram** y el hub central **Linktree Oficial** (`https://linktr.ee/Profitivo`).
 - **Noticias, Videos y Acceso Rápido:** Acceso directo para registrarse, iniciar sesión o solicitar asistencia.
 
 ### 3.2 Portal Privado del Estudiante

@@ -403,3 +403,158 @@ input:checked + .slider:before {
 
 .toast.success { border-color: var(--green-neon); color: var(--green-neon); }
 .toast.error { border-color: #EF4444; color: #F87171; }
+
+/* ==============================================================================
+   DISEÑO RESPONSIVE Y MULTI-DISPOSITIVO (MÓVIL, TABLET, LAPTOP, DESKTOP)
+   ============================================================================== */
+
+/* Redes Sociales Grid & Tarjetas */
+.social-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.social-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-decoration: none;
+  color: #fff;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.social-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--green-neon);
+  box-shadow: 0 10px 25px var(--green-glow);
+}
+
+.social-card-tiktok:hover { border-color: #00F2FE; box-shadow: 0 10px 25px rgba(0, 242, 254, 0.25); }
+.social-card-x:hover { border-color: #FFFFFF; box-shadow: 0 10px 25px rgba(255, 255, 255, 0.2); }
+.social-card-telegram:hover { border-color: #26A5E4; box-shadow: 0 10px 25px rgba(38, 165, 228, 0.25); }
+.social-card-linktree:hover { border-color: var(--green-neon); box-shadow: 0 10px 25px var(--green-glow); }
+
+/* Adaptabilidad para Dispositivos Móviles (Smartphones <= 768px) */
+@media (max-width: 768px) {
+  body {
+    background-size: 100% 100%, 100% 100%, 25px 25px, 25px 25px;
+  }
+
+  .container {
+    padding: 0 16px;
+  }
+
+  .navbar {
+    padding: 10px 0;
+  }
+
+  .nav-content {
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    text-align: center;
+  }
+
+  .nav-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+    font-size: 0.85rem;
+  }
+
+  #nav-actions {
+    width: 100%;
+    justify-content: center;
+  }
+
+  h1 {
+    font-size: 1.85rem !important;
+    line-height: 1.25 !important;
+  }
+
+  h2 {
+    font-size: 1.5rem !important;
+  }
+
+  h3 {
+    font-size: 1.25rem !important;
+  }
+
+  .glass-card {
+    padding: 18px !important;
+    border-radius: 12px;
+  }
+
+  /* Desmontar grillas forzadas a 1 sola columna en celular */
+  #que-es .glass-card {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+
+  #mision-vision > div:last-child {
+    grid-template-columns: 1fr !important;
+  }
+
+  .form-group input, .form-group select, .form-group textarea {
+    font-size: 16px !important; /* Previene zoom forzado en iOS Safari */
+  }
+
+  /* Modales en móvil */
+  .modal-overlay {
+    padding: 12px;
+  }
+
+  .modal-content {
+    padding: 20px 16px;
+    max-height: 94vh;
+    border-radius: 12px;
+  }
+
+  /* Formularios de 2 columnas se convierten a 1 en móvil */
+  form div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .btn {
+    padding: 10px 18px;
+    width: 100%;
+  }
+
+  .btn-outline, .btn-primary, .btn-gold {
+    justify-content: center;
+  }
+
+  /* Tablas en móvil */
+  .custom-table th, .custom-table td {
+    padding: 10px 12px;
+    font-size: 0.82rem;
+  }
+}
+
+/* Adaptabilidad para Tablets (769px a 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .container {
+    padding: 0 20px;
+  }
+
+  h1 {
+    font-size: 2.3rem !important;
+  }
+
+  .nav-links {
+    gap: 18px;
+  }
+
+  .glass-card {
+    padding: 22px;
+  }
+}
+
