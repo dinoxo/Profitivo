@@ -1,0 +1,21 @@
+{
+  "name": "Profitivo — Trading & Crypto Solutions",
+  "short_name": "Profitivo",
+  "description": "Plataforma educativa de trading y criptomonedas con lecciones directas y sin rodeos.",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#060B14",
+  "theme_color": "#00E676",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

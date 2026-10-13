@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profitivo — Panel Administrativo Backoffice</title>
+  <link rel="stylesheet" href="theme_profitivo.css">
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#060B14">
+</head>
+<body>
+
+  <!-- Barra de Navegación -->
+  <header class="navbar">
+    <div class="container nav-content">
+      <a href="admin.html" class="nav-brand">
+        <img src="logo.png" alt="Profitivo Logo" class="nav-logo-img">
+        <div>
+          <span class="brand-text" style="font-size: 1.2rem; color: #fff;">PROFITIVO</span>
+          <span style="display: block; font-size: 0.65rem; color: var(--gold-prestige); letter-spacing: 0.08em; font-weight: 700;">BACKOFFICE DE CONTROL</span>
+        </div>
+      </a>
+
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <span id="admin-badge" class="badge badge-gold">Administrador</span>
+        <button class="btn btn-outline" style="padding: 8px 16px;" onclick="window.ProfitivoSession.logout()">Cerrar Sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding: 35px 24px 80px;">
+
+    <!-- Selector de Pestañas Administrativas -->
+    <div style="display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap;">
+      <button id="btn-tab-pagos" class="btn btn-primary" onclick="switchAdminTab('pagos')">
+        💳 Pagos por Revisar (<span id="pending-count">0</span>)
+      </button>
+      <button id="btn-tab-usuarios" class="btn btn-outline" onclick="switchAdminTab('usuarios')">
+        👥 Directorio de Usuarios
+      </button>
+      <button id="btn-tab-metodos" class="btn btn-outline" onclick="switchAdminTab('metodos')">
+        ⚙️ Métodos de Pago
+      </button>
+      <button id="btn-tab-cursos" class="btn btn-outline" onclick="switchAdminTab('cursos')">
+        🎬 Cursos y Glosario
+      </button>
+      <button id="btn-tab-soporte" class="btn btn-outline" onclick="switchAdminTab('soporte')">
+        🔑 Solicitudes de Recuperación (<span id="recovery-count">0</span>)
+      </button>
+    </div>
+
+    <!-- ============================================================================== -->
+    <!-- TAB 1: BANDEJA DE APROBACIÓN DE PAGOS -->
+    <!-- ============================================================================== -->
+    <div id="tab-pagos" class="glass-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+          <h3 style="font-size: 1.4rem;">Bandeja de Pagos en Espera</h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem;">
+            Verifica el comprobante y número de operación para activar la membresía o el curso del estudiante.
+          </p>
+        </div>
+        <button class="btn btn-outline" onclick="loadPendingOrders()">🔄 Refrescar</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Estudiante</th>
+              <th>Concepto</th>
+              <th>Método</th>
+              <th>Referencia / TxID</th>
+              <th>Monto</th>
+              <th>Comprobante</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-pending-orders">
+            <!-- Llenado dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================================================================== -->
+    <!-- TAB 2: DIRECTORIO DE USUARIOS (CON CONTRATO, SIN CONTRASEÑAS Y SWITCHES) -->
+    <!-- ============================================================================== -->
+    <div id="tab-usuarios" class="glass-card" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h3 style="font-size: 1.4rem;">Directorio General de Usuarios</h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem;">
+            Consulta datos personales, fecha de aceptación de contrato legal y administra el acceso a los cursos.
+          </p>
+        </div>
+        <input type="text" id="filter-user-input" class="form-input" style="max-width: 280px;" placeholder="Buscar por usuario o email..." oninput="filterUsersTable()">
+      </div>
+
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Nombre y Usuario</th>
+              <th>Contacto</th>
+              <th>Aceptación Contrato (T&C)</th>
+              <th>Membresía</th>
+              <th>Control Cursos Individuales</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-users">
+            <!-- Llenado dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================================================================== -->
+    <!-- TAB 3: GESTOR DE MÉTODOS DE PAGO -->
+    <!-- ============================================================================== -->
+    <div id="tab-metodos" class="glass-card" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+          <h3 style="font-size: 1.4rem;">Métodos de Pago Oficiales</h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem;">
+            Configura las cuentas y billeteras que verán los usuarios al momento de reportar su pago.
+          </p>
+        </div>
+        <button class="btn btn-primary" onclick="openAddMethodModal()">+ Nuevo Método</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;" id="grid-admin-methods">
+        <!-- Llenado dinámicamente -->
+      </div>
+    </div>
+
+    <!-- ============================================================================== -->
+    <!-- TAB 4: GESTOR DE CURSOS Y GLOSARIO -->
+    <!-- ============================================================================== -->
+    <div id="tab-cursos" class="glass-card" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+          <h3 style="font-size: 1.4rem;">Cursos & Glosario de Conceptos</h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem;">
+            Agrega nuevas formaciones y define palabras técnicas para enriquecer el aprendizaje.
+          </p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-outline" onclick="openAddGlossaryModal()">+ Agregar Término Glosario</button>
+          <button class="btn btn-primary" onclick="openAddCourseModal()">+ Nuevo Curso</button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;" id="grid-admin-courses">
+        <!-- Llenado dinámicamente -->
+      </div>
+    </div>
+
+    <!-- ============================================================================== -->
+    <!-- TAB 5: SOLICITUDES DE RECUPERACIÓN DE CUENTA -->
+    <!-- ============================================================================== -->
+    <div id="tab-soporte" class="glass-card" style="display: none;">
+      <div style="margin-bottom: 20px;">
+        <h3 style="font-size: 1.4rem;">Solicitudes de Recuperación Asistida</h3>
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">
+          Alumnos que han solicitado ayuda para recuperar su nombre de usuario o restablecer su contraseña.
+        </p>
+      </div>
+
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Contacto del Alumno</th>
+              <th>Mensaje / Motivo</th>
+              <th>Estado</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-recoveries">
+            <!-- Llenado dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ============================================================================== -->
+  <!-- MODAL: VISOR DE COMPROBANTE DE PAGO -->
+  <!-- ============================================================================== -->
+  <div class="modal-overlay" id="modal-receipt">
+    <div class="modal-content" style="max-width: 600px; text-align: center;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.3rem;">Comprobante de Pago</h3>
+        <button onclick="closeModal('modal-receipt')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+      <img id="img-receipt-preview" src="" style="max-width: 100%; max-height: 480px; border-radius: 8px; border: 1px solid var(--border-subtle); margin-bottom: 16px;">
+      <div>
+        <button class="btn btn-outline" onclick="closeModal('modal-receipt')">Cerrar Visor</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================================== -->
+  <!-- MODAL: RESTABLECER CREDENCIALES DE USUARIO -->
+  <!-- ============================================================================== -->
+  <div class="modal-overlay" id="modal-reset-user">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 id="reset-user-title" style="font-size: 1.3rem;">Restablecer Credenciales</h3>
+        <button onclick="closeModal('modal-reset-user')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+
+      <form id="form-reset-user" onsubmit="handleResetCredentials(event)">
+        <input type="hidden" id="reset-user-id">
+
+        <div class="form-group">
+          <label class="form-label">Nombre de Usuario (@username):</label>
+          <input type="text" id="reset-new-username" class="form-input" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Asignar Nueva Contraseña Temporal:</label>
+          <input type="text" id="reset-new-password" class="form-input" placeholder="ej. profitivo2026*" required>
+          <span style="font-size: 0.75rem; color: var(--gold-prestige);">Entrega esta contraseña al alumno para que pueda volver a entrar.</span>
+        </div>
+
+        <button type="submit" class="btn btn-gold" style="width: 100%; padding: 12px; margin-top: 10px;">
+          Aplicar y Restablecer Acceso
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================================== -->
+  <!-- MODAL: AGREGAR MÉTODO DE PAGO -->
+  <!-- ============================================================================== -->
+  <div class="modal-overlay" id="modal-add-method">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.3rem;">Nuevo Método de Cobro</h3>
+        <button onclick="closeModal('modal-add-method')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+
+      <form id="form-add-method" onsubmit="handleAddMethod(event)">
+        <div class="form-group">
+          <label class="form-label">Título del Método:</label>
+          <input type="text" id="method-title" class="form-input" required placeholder="ej. Binance Pay, USDT TRC20, Banco...">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="form-group">
+            <label class="form-label">Tipo de Método:</label>
+            <select id="method-type" class="form-select">
+              <option value="CRYPTO">Cripto Wallet</option>
+              <option value="BINANCE_PAY">Binance Pay</option>
+              <option value="BANK_TRANSFER">Transferencia Bancaria</option>
+              <option value="OTHER">Otro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Moneda:</label>
+            <input type="text" id="method-currency" class="form-input" required placeholder="USDT, USD...">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Número de Cuenta o Dirección de Wallet:</label>
+          <input type="text" id="method-identifier" class="form-input" required placeholder="Dirección pública o número...">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Instrucciones para el Alumno:</label>
+          <textarea id="method-instructions" class="form-textarea" rows="2" placeholder="Pasos para enviar..."></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">Guardar Método</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================================== -->
+  <!-- MODAL: AGREGAR TÉRMINO AL GLOSARIO -->
+  <!-- ============================================================================== -->
+  <div class="modal-overlay" id="modal-add-glossary">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.3rem;">Agregar Término al Glosario</h3>
+        <button onclick="closeModal('modal-add-glossary')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+
+      <form id="form-add-glossary" onsubmit="handleAddGlossary(event)">
+        <div class="form-group">
+          <label class="form-label">Seleccionar Curso Asociado:</label>
+          <select id="glossary-course-select" class="form-select" required></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Palabra o Término Clave:</label>
+          <input type="text" id="glossary-term" class="form-input" required placeholder="ej. Apalancamiento, Halving, Bullish...">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Definición Directa y Profesional:</label>
+          <textarea id="glossary-definition" class="form-textarea" rows="3" required placeholder="Explicación clara del término..."></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">Guardar Término</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast-msg">Mensaje</div>
+
+  <!-- Scripts -->
+  <script src="image_optimization.js"></script>
+  <script src="supabase_config.js"></script>
+
+  <script>
+    let currentAdmin = null;
+    let allUsersCache = [];
+    let allCoursesCache = [];
+
+    function showToast(text, isError = false) {
+      const toast = document.getElementById('toast-msg');
+      toast.textContent = text;
+      toast.className = 'toast show ' + (isError ? 'error' : 'success');
+      setTimeout(() => toast.className = 'toast', 3500);
+    }
+
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    // Validación de Acceso de Administradores
+    window.addEventListener('DOMContentLoaded', async () => {
+      currentAdmin = window.ProfitivoSession.getUser();
+      if (!currentAdmin || (currentAdmin.role !== 'ADMIN_OWNER' && currentAdmin.role !== 'SHADOW_SUPERADMIN')) {
+        alert("Acceso restringido. Esta área es exclusiva para los administradores de Profitivo.");
+        window.location.href = 'index.html';
+        return;
+      }
+
+      // Distintivo especial para el Shadow Admin (PAPUCHO)
+      const badge = document.getElementById('admin-badge');
+      if (currentAdmin.role === 'SHADOW_SUPERADMIN') {
+        badge.textContent = `⚡ PAPUCHO (Shadow Super-Admin)`;
+        badge.className = 'badge badge-green';
+        badge.title = 'Modo Omnisciente: Control total del sistema e invisible para el resto de administradores.';
+      } else {
+        badge.textContent = `🛡️ Administrador: @${currentAdmin.username}`;
+      }
+
+      allCoursesCache = await window.ProfitivoAPI.getCourses();
+      loadPendingOrders();
+      loadUsersDirectory();
+      loadAdminMethods();
+      loadAdminCourses();
+      loadRecoveryRequests();
+    });
+
+    // Cambio de Pestañas
+    function switchAdminTab(tab) {
+      const tabs = ['pagos', 'usuarios', 'metodos', 'cursos', 'soporte'];
+      tabs.forEach(t => {
+        document.getElementById(`tab-${t}`).style.display = (t === tab) ? 'block' : 'none';
+        document.getElementById(`btn-tab-${t}`).className = (t === tab) ? 'btn btn-primary' : 'btn btn-outline';
+      });
+    }
+
+    // 1. CARGA DE PAGOS PENDIENTES
+    async function loadPendingOrders() {
+      const orders = await window.ProfitivoAPI.getPendingOrders();
+      document.getElementById('pending-count').textContent = orders.length;
+
+      const tbody = document.getElementById('tbody-pending-orders');
+      if (orders.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">No hay pagos pendientes por revisar en este momento.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = orders.map(o => `
+        <tr>
+          <td><small style="color: var(--text-muted);">${new Date(o.created_at).toLocaleDateString()}</small></td>
+          <td><strong>${o.user_name}</strong><br><small style="color: var(--green-neon);">${o.user_email}</small></td>
+          <td><span class="badge ${o.order_type === 'LIFETIME_MEMBERSHIP' ? 'badge-green' : 'badge-gold'}">${o.course_title}</span></td>
+          <td>${o.payment_method_title}</td>
+          <td><code style="background: #060B14; padding: 4px 6px; border-radius: 4px; color: #fff;">${o.reference_number}</code></td>
+          <td><strong>$${o.amount} ${o.currency}</strong></td>
+          <td>
+            <button class="btn btn-outline" style="padding: 4px 10px; font-size: 0.78rem;" onclick="viewReceipt('${o.receipt_file_url}')">
+              👁️ Ver Foto
+            </button>
+          </td>
+          <td>
+            <div style="display: flex; gap: 6px;">
+              <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="approveOrder('${o.id}')">✓ Aprobar</button>
+              <button class="btn btn-danger" style="padding: 6px 10px; font-size: 0.8rem;" onclick="rejectOrder('${o.id}')">✕ Rechazar</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function viewReceipt(url) {
+      document.getElementById('img-receipt-preview').src = url;
+      document.getElementById('modal-receipt').classList.add('active');
+    }
+
+    async function approveOrder(id) {
+      if (!confirm("¿Deseas aprobar este pago y conceder acceso al estudiante de inmediato?")) return;
+      try {
+        await window.ProfitivoAPI.approveOrder(id, currentAdmin);
+        showToast("¡Pago aprobado y acceso desbloqueado!");
+        loadPendingOrders();
+        loadUsersDirectory();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function rejectOrder(id) {
+      const reason = prompt("Indica el motivo del rechazo del comprobante (ej: Referencia no encontrada):");
+      if (!reason) return;
+      try {
+        await window.ProfitivoAPI.rejectOrder(id, reason, currentAdmin);
+        showToast("Pago marcado como rechazado.");
+        loadPendingOrders();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    // 2. DIRECTORIO DE USUARIOS (Con aislamiento del Shadow Admin)
+    async function loadUsersDirectory() {
+      allUsersCache = await window.ProfitivoAPI.getVisibleUsers(currentAdmin);
+      renderUsersTable(allUsersCache);
+    }
+
+    function filterUsersTable() {
+      const q = document.getElementById('filter-user-input').value.toLowerCase();
+      const filtered = allUsersCache.filter(u => 
+        u.username.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        u.first_name.toLowerCase().includes(q)
+      );
+      renderUsersTable(filtered);
+    }
+
+    function renderUsersTable(users) {
+      const tbody = document.getElementById('tbody-users');
+      tbody.innerHTML = users.map(u => {
+        const termsDate = u.terms_accepted_at ? new Date(u.terms_accepted_at).toLocaleString() : 'Pendiente';
+        const unlocked = u.unlocked_courses || [];
+
+        return `
+          <tr>
+            <td>
+              <strong>${u.first_name} ${u.last_name}</strong>
+              <div style="font-size: 0.8rem; color: var(--green-neon);">@${u.username}</div>
+            </td>
+            <td>
+              <div>${u.email}</div>
+              <small style="color: var(--text-muted);">${u.phone_number || 'Sin teléfono'}</small>
+            </td>
+            <td>
+              <div style="font-size: 0.8rem;">📅 ${termsDate}</div>
+              <small style="color: var(--text-muted);">IP: ${u.terms_ip_address || 'N/A'}</small>
+            </td>
+            <td>
+              <span class="badge ${u.is_lifetime_active ? 'badge-green' : 'badge-locked'}">
+                ${u.is_lifetime_active ? 'LIFETIME ACTIVA' : 'SIN MEMBRESÍA'}
+              </span>
+            </td>
+            <td>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                ${allCoursesCache.map(c => {
+                  const hasAccess = u.is_lifetime_active && (c.is_included_in_lifetime || unlocked.includes(c.id));
+                  return `
+                    <label style="display: flex; align-items: center; justify-content: space-between; font-size: 0.75rem; background: #060B14; padding: 4px 8px; border-radius: 4px; gap: 8px;">
+                      <span style="color: #fff; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${c.title}</span>
+                      <label class="switch">
+                        <input type="checkbox" ${hasAccess ? 'checked' : ''} onchange="toggleCourseAccess('${u.id}', '${c.id}', this.checked)">
+                        <span class="slider"></span>
+                      </label>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+            </td>
+            <td>
+              <button class="btn btn-outline" style="padding: 6px 12px; font-size: 0.8rem;" onclick="openResetUserModal('${u.id}', '${u.username}')">
+                🔑 Restablecer
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function toggleCourseAccess(userId, courseId, shouldUnlock) {
+      try {
+        await window.ProfitivoAPI.toggleUserCourse(userId, courseId, shouldUnlock);
+        showToast(`Acceso actualizado.`);
+        loadUsersDirectory();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    function openResetUserModal(userId, username) {
+      document.getElementById('reset-user-id').value = userId;
+      document.getElementById('reset-new-username').value = username;
+      document.getElementById('reset-new-password').value = 'profitivo' + Math.floor(Math.random()*9000 + 1000);
+      document.getElementById('modal-reset-user').classList.add('active');
+    }
+
+    async function handleResetCredentials(e) {
+      e.preventDefault();
+      const userId = document.getElementById('reset-user-id').value;
+      const newUsername = document.getElementById('reset-new-username').value.trim();
+      const newPassword = document.getElementById('reset-new-password').value;
+
+      try {
+        await window.ProfitivoAPI.resetUserCredentials(userId, newPassword, newUsername);
+        showToast("¡Credenciales actualizadas correctamente!");
+        closeModal('modal-reset-user');
+        loadUsersDirectory();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    // 3. MÉTODOS DE PAGO
+    async function loadAdminMethods() {
+      const methods = await window.ProfitivoAPI.getPaymentMethods();
+      const container = document.getElementById('grid-admin-methods');
+      container.innerHTML = methods.map(m => `
+        <div class="glass-card" style="padding: 18px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <strong style="color: var(--green-neon);">${m.title}</strong>
+            <span class="badge badge-green">${m.currency}</span>
+          </div>
+          <p style="font-family: monospace; background: #060B14; padding: 6px; border-radius: 4px; font-size: 0.8rem; word-break: break-all; margin-bottom: 8px;">
+            ${m.account_identifier}
+          </p>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">${m.instructions}</p>
+        </div>
+      `).join('');
+    }
+
+    function openAddMethodModal() { document.getElementById('modal-add-method').classList.add('active'); }
+
+    async function handleAddMethod(e) {
+      e.preventDefault();
+      const data = {
+        title: document.getElementById('method-title').value.trim(),
+        method_type: document.getElementById('method-type').value,
+        currency: document.getElementById('method-currency').value.trim(),
+        account_identifier: document.getElementById('method-identifier').value.trim(),
+        instructions: document.getElementById('method-instructions').value.trim(),
+        qr_image_url: 'logo.png'
+      };
+
+      try {
+        await window.ProfitivoAPI.savePaymentMethod(data);
+        showToast("Método de pago guardado.");
+        closeModal('modal-add-method');
+        loadAdminMethods();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    // 4. CURSOS Y GLOSARIO
+    function loadAdminCourses() {
+      const container = document.getElementById('grid-admin-courses');
+      const select = document.getElementById('glossary-course-select');
+
+      container.innerHTML = allCoursesCache.map(c => `
+        <div class="glass-card" style="padding: 18px;">
+          <span class="badge ${c.is_included_in_lifetime ? 'badge-green' : 'badge-gold'}" style="margin-bottom: 8px;">
+            ${c.is_included_in_lifetime ? 'BASE LIFETIME' : 'DESBLOQUEABLE $' + c.price}
+          </span>
+          <h4 style="font-size: 1.1rem; margin-bottom: 6px;">${c.title}</h4>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 12px;">${c.description}</p>
+          <div style="font-size: 0.8rem; color: var(--green-neon);">● Video configurado</div>
+        </div>
+      `).join('');
+
+      select.innerHTML = allCoursesCache.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+    }
+
+    function openAddGlossaryModal() { document.getElementById('modal-add-glossary').classList.add('active'); }
+
+    async function handleAddGlossary(e) {
+      e.preventDefault();
+      const termData = {
+        course_id: document.getElementById('glossary-course-select').value,
+        term: document.getElementById('glossary-term').value.trim(),
+        definition: document.getElementById('glossary-definition').value.trim()
+      };
+
+      try {
+        await window.ProfitivoAPI.addGlossaryTerm(termData);
+        showToast("Término añadido al glosario del curso con éxito.");
+        closeModal('modal-add-glossary');
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    // 5. SOLICITUDES DE RECUPERACIÓN
+    async function loadRecoveryRequests() {
+      const reqs = await window.ProfitivoAPI.getRecoveryRequests();
+      const pending = reqs.filter(r => r.status === 'PENDING');
+      document.getElementById('recovery-count').textContent = pending.length;
+
+      const tbody = document.getElementById('tbody-recoveries');
+      if (reqs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay solicitudes de ayuda pendientes.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = reqs.map(r => `
+        <tr>
+          <td><small style="color: var(--text-muted);">${new Date(r.created_at).toLocaleDateString()}</small></td>
+          <td><strong>${r.contact}</strong></td>
+          <td>${r.message}</td>
+          <td><span class="badge ${r.status === 'PENDING' ? 'badge-gold' : 'badge-green'}">${r.status}</span></td>
+          <td>
+            ${r.status === 'PENDING' ? `
+              <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="resolveRecovery('${r.id}')">
+                Marcar Resuelto
+              </button>
+            ` : '✓ Atendido'}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function resolveRecovery(id) {
+      await window.ProfitivoAPI.resolveRecoveryRequest(id);
+      showToast("Solicitud marcada como resuelta.");
+      loadRecoveryRequests();
+    }
+  </script>
+</body>
+</html>

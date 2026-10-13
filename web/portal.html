@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profitivo — Portal del Estudiante</title>
+  <link rel="stylesheet" href="theme_profitivo.css">
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#060B14">
+</head>
+<body>
+
+  <!-- Barra de Navegación -->
+  <header class="navbar">
+    <div class="container nav-content">
+      <a href="portal.html" class="nav-brand">
+        <img src="logo.png" alt="Profitivo Logo" class="nav-logo-img">
+        <div>
+          <span class="brand-text" style="font-size: 1.2rem; color: #fff;">PROFITIVO</span>
+          <span style="display: block; font-size: 0.65rem; color: var(--green-neon); letter-spacing: 0.08em; font-weight: 700;">PANEL DE ESTUDIANTE</span>
+        </div>
+      </a>
+
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <span id="user-badge" class="badge badge-green">Cargando...</span>
+        <button class="btn btn-outline" style="padding: 8px 16px;" onclick="openProfileModal()">👤 Mi Perfil</button>
+        <button class="btn btn-outline" style="padding: 8px 16px;" onclick="window.ProfitivoSession.logout()">Salir</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" style="padding: 40px 24px 80px;">
+
+    <!-- ============================================================================== -->
+    <!-- ESTADO 1: USUARIO SIN MEMBRESÍA VITALICIA ACTIVA -->
+    <!-- ============================================================================== -->
+    <div id="section-pending-membership" style="display: none;">
+      
+      <!-- Banner Si ya envió comprobante y está en revisión -->
+      <div id="box-review-pending" class="glass-card" style="margin-bottom: 30px; border-left: 4px solid var(--gold-prestige); display: none;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="font-size: 2.5rem;">⏳</div>
+          <div>
+            <h3 style="color: var(--gold-prestige); margin-bottom: 4px;">Tu Pago está en Proceso de Revisión</h3>
+            <p style="color: var(--text-secondary); font-size: 0.95rem;">
+              Hemos recibido tu comprobante de pago. Los administradores de Profitivo están validando la transferencia. Una vez aprobado, tu membresía vitalicia quedará activa de forma inmediata.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pantalla de Pago de Membresía -->
+      <div id="box-pay-membership">
+        <div class="glass-card" style="margin-bottom: 35px; border-top: 3px solid var(--green-neon);">
+          <div style="text-align: center; max-width: 680px; margin: 0 auto;">
+            <span class="badge badge-gold" style="margin-bottom: 12px;">PASO 1 REQUERIDO</span>
+            <h2 style="font-size: 2.1rem; margin-bottom: 12px;">Activa tu Membresía Vitalicia Única</h2>
+            <p style="color: var(--text-secondary); font-size: 1rem; margin-bottom: 24px;">
+              Para acceder al catálogo de cursos base, herramientas de análisis y noticias de Profitivo, realiza el pago único de tu membresía a cualquiera de nuestras cuentas oficiales y repórtalo abajo.
+            </p>
+          </div>
+
+          <!-- Métodos de Pago Oficiales Configurados -->
+          <h4 style="margin-bottom: 16px; color: var(--green-neon);">Métodos de Pago Oficiales de Profitivo:</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; margin-bottom: 30px;" id="portal-payment-methods">
+            <!-- Cargados dinámicamente -->
+          </div>
+
+          <!-- Formulario de Reporte de Pago con Compresión WebP -->
+          <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 24px; border-radius: 12px;">
+            <h3 style="font-size: 1.3rem; margin-bottom: 16px; color: #fff;">Reportar Pago de Membresía</h3>
+
+            <form id="form-report-membership" onsubmit="handleReportPayment(event, 'LIFETIME_MEMBERSHIP')">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                  <label class="form-label">Método de Pago Utilizado:</label>
+                  <select id="rep-method-select" class="form-select" required>
+                    <!-- Opciones de métodos -->
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Número de Referencia / Hash (TxID):</label>
+                  <input type="text" id="rep-ref" class="form-input" required placeholder="ej. 8839201 o TxID crypto">
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                  <label class="form-label">Monto Transferido ($ USD / USDT):</label>
+                  <input type="number" id="rep-amount" class="form-input" required value="50.00" step="0.01">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Adjuntar Comprobante (JPG, PNG, Captura):</label>
+                  <input type="file" id="rep-file" class="form-input" accept="image/*" required onchange="previewReceiptCompression(event)">
+                  <span id="compression-info" style="display: block; font-size: 0.75rem; color: var(--green-neon); margin-top: 4px;"></span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Notas Adicionales (Opcional):</label>
+                <input type="text" id="rep-notes" class="form-input" placeholder="Nombre del titular de la cuenta que envió...">
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem;">
+                Enviar Comprobante a los Administradores ↗
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================================== -->
+    <!-- ESTADO 2: ALUMNO CON MEMBRESÍA VITALICIA ACTIVA -->
+    <!-- ============================================================================== -->
+    <div id="section-active-membership" style="display: none;">
+      
+      <!-- Cabecera de bienvenida -->
+      <div class="glass-card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 35px; flex-wrap: wrap; gap: 20px;">
+        <div>
+          <span class="badge badge-green" style="margin-bottom: 8px;">MEMBRESÍA PERMANENTE VITALICIA ACTIVA</span>
+          <h2 style="font-size: 1.9rem;">Bienvenido a tu Espacio Formativo</h2>
+          <p style="color: var(--text-secondary); font-size: 0.95rem;">
+            Tienes acceso total ilimitado a todos los cursos base, glosarios y actualizaciones de Profitivo.
+          </p>
+        </div>
+        <img src="logo.png" alt="Profitivo" style="width: 75px; height: 75px; border-radius: 50%; box-shadow: 0 0 20px var(--green-glow);">
+      </div>
+
+      <!-- Pestañas de Cursos -->
+      <div style="display: flex; gap: 14px; margin-bottom: 26px;">
+        <button id="tab-base" class="btn btn-primary" onclick="switchCourseTab('base')">
+          📚 Cursos Base (Incluidos)
+        </button>
+        <button id="tab-pro" class="btn btn-outline" onclick="switchCourseTab('pro')">
+          🔒 Cursos Especializados (Desbloqueables)
+        </button>
+      </div>
+
+      <!-- Grid de Cursos Base -->
+      <div id="grid-base-courses" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;">
+        <!-- Se llena con JS -->
+      </div>
+
+      <!-- Grid de Cursos Especializados -->
+      <div id="grid-pro-courses" style="display: none; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;">
+        <!-- Se llena con JS -->
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ============================================================================== -->
+  <!-- MODAL REPRODUCTOR DE VIDEO & GLOSARIO -->
+  <!-- ============================================================================== -->
+  <div class="modal-overlay" id="modal-player">
+    <div class="modal-content" style="max-width: 850px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 id="player-title" style="font-size: 1.35rem;">Reproduciendo Lección</h3>
+        <button onclick="closeModal('modal-player'); pauseVideo()" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+
+      <!-- Video Player -->
+      <div style="position: relative; padding-bottom: 56.25%; height: 0; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 20px; border: 1px solid var(--border-subtle);">
+        <video id="course-video" controls style="position: absolute; top:0; left: 0; width: 100%; height: 100%;">
+          Tu navegador no soporta video HTML5.
+        </video>
+      </div>
+
+      <!-- Pestaña de Glosario del Curso -->
+      <div style="background: #060B14; border: 1px solid var(--border-subtle); border-radius: 10px; padding: 18px;">
+        <h4 style="font-size: 1.05rem; margin-bottom: 12px; color: var(--green-neon);">📖 Glosario & Conceptos Clave de este Curso:</h4>
+        <div id="player-glossary-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 180px; overflow-y: auto;">
+          <!-- Glosario se carga dinámicamente -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================================== -->
+  <!-- MODAL DE DESBLOQUEO DE CURSO INDIVIDUAL (PAY-PER-COURSE) -->
+  <!-- ============================================================================== -->
+  <div class="modal-overlay" id="modal-unlock-course">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 id="unlock-modal-title" style="font-size: 1.35rem;">Desbloquear Curso</h3>
+        <button onclick="closeModal('modal-unlock-course')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+
+      <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 20px;">
+        Realiza la transferencia del monto del curso a cualquiera de nuestros métodos de pago y adjunta tu comprobante aquí para que el administrador active tu acceso permanente.
+      </p>
+
+      <form id="form-unlock-course" onsubmit="handleReportCoursePayment(event)">
+        <input type="hidden" id="unlock-course-id">
+        <input type="hidden" id="unlock-course-name">
+
+        <div class="form-group">
+          <label class="form-label">Método de Pago:</label>
+          <select id="unlock-method-select" class="form-select" required></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Monto ($ USD / USDT):</label>
+          <input type="text" id="unlock-amount" class="form-input" readonly>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Referencia / Hash (TxID):</label>
+          <input type="text" id="unlock-ref" class="form-input" required placeholder="ej. 994012 o TxHash">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Comprobante de Pago:</label>
+          <input type="file" id="unlock-file" class="form-input" accept="image/*" required>
+        </div>
+
+        <button type="submit" class="btn btn-gold" style="width: 100%; padding: 12px; margin-top: 10px;">
+          Reportar Pago del Curso ↗
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================================== -->
+  <!-- MODAL DE MI PERFIL -->
+  <!-- ============================================================================== -->
+  <div class="modal-overlay" id="modal-profile">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="font-size: 1.35rem;">Editar Mi Perfil</h3>
+        <button onclick="closeModal('modal-profile')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+
+      <form id="form-profile" onsubmit="handleUpdateProfile(event)">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="form-group">
+            <label class="form-label">Nombre:</label>
+            <input type="text" id="prof-name" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Apellido:</label>
+            <input type="text" id="prof-lastname" class="form-input" required>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="form-group">
+            <label class="form-label">Nombre de Usuario:</label>
+            <input type="text" id="prof-username" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Teléfono:</label>
+            <input type="tel" id="prof-phone" class="form-input">
+          </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-subtle); margin: 20px 0;">
+        <h4 style="font-size: 0.95rem; margin-bottom: 12px; color: var(--green-neon);">Cambiar Contraseña (Opcional):</h4>
+
+        <div class="form-group">
+          <label class="form-label">Contraseña Actual:</label>
+          <input type="password" id="prof-current-pass" class="form-input" placeholder="Para confirmar cambios de clave">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nueva Contraseña:</label>
+          <input type="password" id="prof-new-pass" class="form-input" placeholder="••••••••">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 10px;">
+          Guardar Cambios
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast-msg">Mensaje</div>
+
+  <!-- Scripts -->
+  <script src="image_optimization.js"></script>
+  <script src="supabase_config.js"></script>
+
+  <script>
+    let currentUser = null;
+    let paymentMethodsCache = [];
+
+    function showToast(text, isError = false) {
+      const toast = document.getElementById('toast-msg');
+      toast.textContent = text;
+      toast.className = 'toast show ' + (isError ? 'error' : 'success');
+      setTimeout(() => toast.className = 'toast', 3500);
+    }
+
+    function openProfileModal() {
+      if (!currentUser) return;
+      document.getElementById('prof-name').value = currentUser.first_name || '';
+      document.getElementById('prof-lastname').value = currentUser.last_name || '';
+      document.getElementById('prof-username').value = currentUser.username || '';
+      document.getElementById('prof-phone').value = currentUser.phone_number || '';
+      document.getElementById('modal-profile').classList.add('active');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    function pauseVideo() {
+      const vid = document.getElementById('course-video');
+      vid.pause();
+    }
+
+    // Inicializar Portal
+    window.addEventListener('DOMContentLoaded', async () => {
+      currentUser = window.ProfitivoSession.getUser();
+      if (!currentUser) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      document.getElementById('user-badge').textContent = `Estudiante: @${currentUser.username}`;
+
+      // Cargar métodos de pago
+      paymentMethodsCache = await window.ProfitivoAPI.getPaymentMethods();
+      renderPaymentMethods();
+
+      // Verificar estado de membresía
+      await refreshUserState();
+    });
+
+    async function refreshUserState() {
+      // Comprobar si tiene pago pendiente
+      const myOrders = await window.ProfitivoAPI.getMyOrders(currentUser.id);
+      const pendingLifetime = myOrders.find(o => o.order_type === 'LIFETIME_MEMBERSHIP' && o.status === 'PENDING_REVIEW');
+
+      if (!currentUser.is_lifetime_active) {
+        document.getElementById('section-pending-membership').style.display = 'block';
+        document.getElementById('section-active-membership').style.display = 'none';
+
+        if (pendingLifetime) {
+          document.getElementById('box-review-pending').style.display = 'block';
+          document.getElementById('box-pay-membership').style.display = 'none';
+        } else {
+          document.getElementById('box-review-pending').style.display = 'none';
+          document.getElementById('box-pay-membership').style.display = 'block';
+        }
+      } else {
+        document.getElementById('section-pending-membership').style.display = 'none';
+        document.getElementById('section-active-membership').style.display = 'block';
+        loadCourses();
+      }
+    }
+
+    function renderPaymentMethods() {
+      const container = document.getElementById('portal-payment-methods');
+      const select = document.getElementById('rep-method-select');
+      const selectUnlock = document.getElementById('unlock-method-select');
+
+      container.innerHTML = paymentMethodsCache.map(m => `
+        <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 18px; border-radius: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <strong style="color: var(--green-neon); font-size: 0.95rem;">${m.title}</strong>
+            <span class="badge badge-green">${m.currency}</span>
+          </div>
+          <p style="font-family: monospace; background: #0B1322; padding: 6px 8px; border-radius: 6px; font-size: 0.85rem; color: #fff; word-break: break-all; margin-bottom: 8px;">
+            ${m.account_identifier}
+          </p>
+          <p style="font-size: 0.8rem; color: var(--text-muted);">${m.instructions}</p>
+        </div>
+      `).join('');
+
+      const options = paymentMethodsCache.map(m => `<option value="${m.title}">${m.title} (${m.currency})</option>`).join('');
+      select.innerHTML = options;
+      selectUnlock.innerHTML = options;
+    }
+
+    // Previsualización y testeo de compresión antes de enviar
+    async function previewReceiptCompression(e) {
+      const file = e.target.files[0];
+      const infoSpan = document.getElementById('compression-info');
+      if (file && window.ProfitivoImageOptimizer) {
+        infoSpan.textContent = `Procesando y optimizando imagen...`;
+        try {
+          const res = await window.ProfitivoImageOptimizer.compress(file);
+          infoSpan.textContent = `✓ Comprimido: ${(res.originalSize/1024).toFixed(0)} KB -> ${(res.compressedSize/1024).toFixed(0)} KB (-${res.savingsPercent}% en WebP)`;
+        } catch (err) {
+          infoSpan.textContent = `Formato original conservado.`;
+        }
+      }
+    }
+
+    // Reportar Pago de Membresía
+    async function handleReportPayment(e, type) {
+      e.preventDefault();
+      const fileInput = document.getElementById('rep-file');
+      const file = fileInput.files[0];
+
+      const reportData = {
+        user_id: currentUser.id,
+        user_name: `${currentUser.first_name} ${currentUser.last_name}`,
+        user_email: currentUser.email,
+        order_type: type,
+        amount: parseFloat(document.getElementById('rep-amount').value),
+        currency: 'USDT',
+        payment_method_title: document.getElementById('rep-method-select').value,
+        reference_number: document.getElementById('rep-ref').value.trim(),
+        user_notes: document.getElementById('rep-notes').value.trim()
+      };
+
+      try {
+        await window.ProfitivoAPI.reportPayment(reportData, file);
+        showToast("¡Comprobante enviado a revisión!");
+        setTimeout(() => refreshUserState(), 1000);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    // Cargar Cursos para Miembros Activos
+    async function loadCourses() {
+      const courses = await window.ProfitivoAPI.getCourses();
+      const baseGrid = document.getElementById('grid-base-courses');
+      const proGrid = document.getElementById('grid-pro-courses');
+
+      const userUnlocked = currentUser.unlocked_courses || [];
+
+      // Cursos Base
+      const baseCourses = courses.filter(c => c.is_included_in_lifetime);
+      baseGrid.innerHTML = baseCourses.map(c => `
+        <div class="glass-card" style="padding: 22px;">
+          <div style="height: 140px; background: #060B14; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid var(--border-subtle);">
+            <img src="${c.thumbnail_url || 'logo.png'}" style="max-height: 80px;">
+          </div>
+          <span class="badge badge-green" style="margin-bottom: 8px;">CURSO BASE</span>
+          <h4 style="font-size: 1.15rem; margin-bottom: 8px;">${c.title}</h4>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 18px; min-height: 44px;">${c.description}</p>
+          <button class="btn btn-primary" style="width: 100%;" onclick="openPlayer('${c.id}', '${c.title}', '${c.video_url}')">
+            ▶ Ver Clase y Glosario
+          </button>
+        </div>
+      `).join('');
+
+      // Cursos Especializados
+      const proCourses = courses.filter(c => !c.is_included_in_lifetime);
+      proGrid.innerHTML = proCourses.map(c => {
+        const isUnlocked = userUnlocked.includes(c.id);
+        return `
+          <div class="glass-card" style="padding: 22px; border-color: ${isUnlocked ? 'var(--green-neon)' : 'var(--border-gold)'};">
+            <div style="height: 140px; background: #060B14; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid var(--border-subtle);">
+              <img src="${c.thumbnail_url || 'logo.png'}" style="max-height: 80px;">
+            </div>
+            <span class="badge ${isUnlocked ? 'badge-green' : 'badge-gold'}" style="margin-bottom: 8px;">
+              ${isUnlocked ? 'DESBLOQUEADO' : 'ESPECIALIZADO: $' + c.price}
+            </span>
+            <h4 style="font-size: 1.15rem; margin-bottom: 8px;">${c.title}</h4>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 18px; min-height: 44px;">${c.description}</p>
+            ${isUnlocked ? `
+              <button class="btn btn-primary" style="width: 100%;" onclick="openPlayer('${c.id}', '${c.title}', '${c.video_url}')">
+                ▶ Ver Clase Desbloqueada
+              </button>
+            ` : `
+              <button class="btn btn-gold" style="width: 100%;" onclick="openUnlockModal('${c.id}', '${c.title}', '${c.price}')">
+                🔓 Desbloquear Curso ($${c.price})
+              </button>
+            `}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function switchCourseTab(tab) {
+      if (tab === 'base') {
+        document.getElementById('tab-base').className = 'btn btn-primary';
+        document.getElementById('tab-pro').className = 'btn btn-outline';
+        document.getElementById('grid-base-courses').style.display = 'grid';
+        document.getElementById('grid-pro-courses').style.display = 'none';
+      } else {
+        document.getElementById('tab-base').className = 'btn btn-outline';
+        document.getElementById('tab-pro').className = 'btn btn-gold';
+        document.getElementById('grid-base-courses').style.display = 'none';
+        document.getElementById('grid-pro-courses').style.display = 'grid';
+      }
+    }
+
+    // Abrir Reproductor y Cargar Glosario
+    async function openPlayer(courseId, title, videoUrl) {
+      document.getElementById('player-title').textContent = title;
+      const vid = document.getElementById('course-video');
+      vid.src = videoUrl;
+      vid.play();
+
+      // Cargar Glosario
+      const glossary = await window.ProfitivoAPI.getCourseGlossary(courseId);
+      const list = document.getElementById('player-glossary-list');
+      if (glossary.length === 0) {
+        list.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;">No hay términos registrados aún para este curso.</p>`;
+      } else {
+        list.innerHTML = glossary.map(g => `
+          <div style="background: #0B1322; padding: 10px 14px; border-radius: 8px; border-left: 3px solid var(--green-neon);">
+            <strong style="color: #fff; font-size: 0.9rem;">${g.term}:</strong>
+            <span style="color: var(--text-secondary); font-size: 0.85rem;"> ${g.definition}</span>
+          </div>
+        `).join('');
+      }
+
+      document.getElementById('modal-player').classList.add('active');
+    }
+
+    // Modal para desbloquear curso individual
+    function openUnlockModal(courseId, title, price) {
+      document.getElementById('unlock-course-id').value = courseId;
+      document.getElementById('unlock-course-name').value = title;
+      document.getElementById('unlock-modal-title').textContent = `Desbloquear: ${title}`;
+      document.getElementById('unlock-amount').value = price;
+      document.getElementById('modal-unlock-course').classList.add('active');
+    }
+
+    async function handleReportCoursePayment(e) {
+      e.preventDefault();
+      const courseId = document.getElementById('unlock-course-id').value;
+      const courseTitle = document.getElementById('unlock-course-name').value;
+      const file = document.getElementById('unlock-file').files[0];
+
+      const reportData = {
+        user_id: currentUser.id,
+        user_name: `${currentUser.first_name} ${currentUser.last_name}`,
+        user_email: currentUser.email,
+        course_id: courseId,
+        course_title: courseTitle,
+        order_type: 'COURSE_UNLOCK',
+        amount: parseFloat(document.getElementById('unlock-amount').value),
+        currency: 'USDT',
+        payment_method_title: document.getElementById('unlock-method-select').value,
+        reference_number: document.getElementById('unlock-ref').value.trim()
+      };
+
+      try {
+        await window.ProfitivoAPI.reportPayment(reportData, file);
+        showToast("Comprobante del curso enviado a los administradores.");
+        closeModal('modal-unlock-course');
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    // Actualizar Perfil
+    async function handleUpdateProfile(e) {
+      e.preventDefault();
+      const updated = {
+        first_name: document.getElementById('prof-name').value.trim(),
+        last_name: document.getElementById('prof-lastname').value.trim(),
+        username: document.getElementById('prof-username').value.trim(),
+        phone_number: document.getElementById('prof-phone').value.trim(),
+        current_password: document.getElementById('prof-current-pass').value,
+        new_password: document.getElementById('prof-new-pass').value
+      };
+
+      try {
+        currentUser = await window.ProfitivoAPI.updateProfile(currentUser.id, updated);
+        showToast("Perfil actualizado correctamente");
+        closeModal('modal-profile');
+        document.getElementById('user-badge').textContent = `Estudiante: @${currentUser.username}`;
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+  </script>
+</body>
+</html>
