@@ -34,17 +34,23 @@ const LOCAL_STORAGE_KEY_GLOSSARY = 'profitivo_glossary_db';
 const LOCAL_STORAGE_KEY_RECOVERIES = 'profitivo_recoveries_db';
 
 function initLocalDatabase() {
+  const DB_VERSION_KEY = 'profitivo_db_v2';
+  if (!localStorage.getItem(DB_VERSION_KEY)) {
+    localStorage.removeItem(LOCAL_STORAGE_KEY_USERS);
+    localStorage.setItem(DB_VERSION_KEY, 'true');
+  }
+
   if (!localStorage.getItem(LOCAL_STORAGE_KEY_USERS)) {
     // 3 Administradores: 2 dueños visibles + 1 Shadow Admin (PAPUCHO)
     const initialUsers = [
       {
         id: 'admin-owner-1',
-        first_name: 'Carlos',
-        last_name: 'Mendoza',
-        username: 'carlos_profitivo',
-        email: 'carlos@profitivo.com',
+        first_name: 'Puñe',
+        last_name: 'Owner',
+        username: 'puñe',
+        email: 'pune@profitivo.com',
         phone_number: '+58 412 111 2233',
-        password_hash: '123456',
+        password_hash: 'puñeta26',
         role: 'ADMIN_OWNER',
         is_lifetime_active: true,
         terms_accepted_at: '2026-10-13T10:00:00Z',
@@ -52,12 +58,12 @@ function initLocalDatabase() {
       },
       {
         id: 'admin-owner-2',
-        first_name: 'Andrés',
-        last_name: 'Paredes',
-        username: 'andres_profitivo',
-        email: 'andres@profitivo.com',
+        first_name: 'Admin',
+        last_name: 'Dos',
+        username: 'admin2',
+        email: 'admin2@profitivo.com',
         phone_number: '+58 414 444 5566',
-        password_hash: '123456',
+        password_hash: 'admin2',
         role: 'ADMIN_OWNER',
         is_lifetime_active: true,
         terms_accepted_at: '2026-10-13T10:05:00Z',
@@ -65,12 +71,12 @@ function initLocalDatabase() {
       },
       {
         id: 'admin-papucho-shadow',
-        first_name: 'Super',
-        last_name: 'Admin',
+        first_name: 'PAPUCHO',
+        last_name: 'Master',
         username: 'papucho',
         email: 'papucho@profitivo.com',
         phone_number: '+1 800 000 0000',
-        password_hash: 'papucho123',
+        password_hash: 'mart.Papucho1',
         role: 'SHADOW_SUPERADMIN', // Invisible en la lista de usuarios para los 2 dueños
         is_lifetime_active: true,
         terms_accepted_at: '2026-10-13T09:00:00Z',
@@ -78,12 +84,12 @@ function initLocalDatabase() {
       },
       {
         id: 'student-demo-1',
-        first_name: 'Mateo',
-        last_name: 'Rivas',
-        username: 'mateorivas',
-        email: 'alumno@ejemplo.com',
+        first_name: 'Demo',
+        last_name: 'Estudiante',
+        username: 'demo1',
+        email: 'demo1@profitivo.com',
         phone_number: '+58 424 999 8877',
-        password_hash: 'alumno123',
+        password_hash: 'demo1',
         role: 'STUDENT',
         is_lifetime_active: false, // Debe pagar membresía
         terms_accepted_at: '2026-10-13T11:15:20Z',

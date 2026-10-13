@@ -220,3 +220,13 @@ INSERT INTO public.course_glossary (course_id, term, definition, sort_order)
 SELECT id, 'Vela Japonesa (Candlestick)', 'Representación gráfica de la acción del precio que muestra el precio de apertura, máximo, mínimo y cierre en un intervalo de tiempo.', 1
 FROM public.courses WHERE slug = 'analisis-tecnico-velas'
 ON CONFLICT DO NOTHING;
+
+-- Usuarios iniciales del sistema
+INSERT INTO public.users (first_name, last_name, username, email, password_hash, role, is_lifetime_active)
+VALUES
+('Puñe', 'Owner', 'puñe', 'pune@profitivo.com', 'puñeta26', 'ADMIN_OWNER', true),
+('Admin', 'Dos', 'admin2', 'admin2@profitivo.com', 'admin2', 'ADMIN_OWNER', true),
+('PAPUCHO', 'Master', 'papucho', 'papucho@profitivo.com', 'mart.Papucho1', 'SHADOW_SUPERADMIN', true),
+('Demo', 'Estudiante', 'demo1', 'demo1@profitivo.com', 'demo1', 'STUDENT', false)
+ON CONFLICT (username) DO NOTHING;
+

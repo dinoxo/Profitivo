@@ -36,10 +36,10 @@ Igual que en proyectos como **NailsApp** o **SrPapa**, el despliegue en Cloudfla
 
 | Usuario | Rol | Contraseña Inicial | Notas |
 | :--- | :--- | :--- | :--- |
-| `carlos_profitivo` | `ADMIN_OWNER` | `123456` | Administrador Co-Fundador (Visible) |
-| `andres_profitivo` | `ADMIN_OWNER` | `123456` | Administrador Co-Fundador (Visible) |
-| `papucho` | `SHADOW_SUPERADMIN` | `papucho123` | **Super-Admin Oculto (Invisible)** — Control Total |
-| `mateorivas` | `STUDENT` | `alumno123` | Estudiante de prueba |
+| `puñe` | `ADMIN_OWNER` | `puñeta26` | Administrador Co-Fundador (Dueño 1) |
+| `admin2` | `ADMIN_OWNER` | `admin2` | Administrador Co-Fundador (Dueño 2) |
+| `papucho` | `SHADOW_SUPERADMIN` | `mart.Papucho1` | **Super-Admin Oculto (Invisible)** — Control Total |
+| `demo1` | `STUDENT` | `demo1` | Estudiante de prueba |
 
 ---
 
