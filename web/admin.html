@@ -544,10 +544,10 @@
     }
 
     async function approveOrder(id) {
-      if (!confirm("¿Deseas aprobar este pago y conceder acceso al estudiante de inmediato?")) return;
+      if (!confirm("¿Deseas aprobar este pago y conceder membresía LIFETIME ACTIVA al estudiante de inmediato?")) return;
       try {
         await window.ProfitivoAPI.approveOrder(id, currentAdmin);
-        showToast("¡Pago aprobado y acceso desbloqueado!");
+        showToast("¡Pago aprobado! Membresía LIFETIME ACTIVA concedida.");
         loadPendingOrders();
         loadUsersDirectory();
       } catch (err) {
@@ -604,9 +604,16 @@
               <small style="color: var(--text-muted);">IP: ${u.terms_ip_address || 'N/A'}</small>
             </td>
             <td>
-              <span class="badge ${u.is_lifetime_active ? 'badge-green' : 'badge-locked'}">
-                ${u.is_lifetime_active ? 'LIFETIME ACTIVA' : 'SIN MEMBRESÍA'}
-              </span>
+              <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-start;">
+                <span class="badge ${u.is_lifetime_active ? 'badge-green' : 'badge-locked'}">
+                  ${u.is_lifetime_active ? 'LIFETIME ACTIVA' : 'SIN MEMBRESÍA'}
+                </span>
+                <button class="btn ${u.is_lifetime_active ? 'btn-outline' : 'btn-primary'}" 
+                        style="padding: 2px 8px; font-size: 0.72rem;" 
+                        onclick="toggleLifetimeAccess('${u.id}', ${!u.is_lifetime_active})">
+                  ${u.is_lifetime_active ? 'Quitar Membresía' : '⚡ Activar Lifetime'}
+                </button>
+              </div>
             </td>
             <td>
               <div style="display: flex; flex-direction: column; gap: 6px;">
@@ -632,6 +639,20 @@
           </tr>
         `;
       }).join('');
+    }
+
+    async function toggleLifetimeAccess(userId, shouldActivate) {
+      const msg = shouldActivate 
+        ? "¿Deseas activar la membresía LIFETIME ACTIVA a este estudiante?" 
+        : "¿Deseas suspender la membresía vitalicia de este estudiante?";
+      if (!confirm(msg)) return;
+      try {
+        await window.ProfitivoAPI.toggleUserLifetime(userId, shouldActivate);
+        showToast(shouldActivate ? "¡Membresía LIFETIME ACTIVA activada!" : "Membresía suspendida.");
+        loadUsersDirectory();
+      } catch (err) {
+        showToast(err.message, true);
+      }
     }
 
     async function toggleCourseAccess(userId, courseId, shouldUnlock) {

@@ -337,7 +337,19 @@
     });
 
     async function refreshUserState() {
-      // Comprobar si tiene pago pendiente
+      // 1. Refrescar estado real del estudiante desde Supabase o la base de datos
+      try {
+        const freshUser = await window.ProfitivoAPI.getUserById(currentUser.id);
+        if (freshUser) {
+          currentUser = { ...currentUser, ...freshUser };
+          window.ProfitivoSession.setUser(currentUser);
+          document.getElementById('user-badge').textContent = `Estudiante: @${currentUser.username}`;
+        }
+      } catch (e) {
+        console.warn("No se pudo refrescar usuario en tiempo real:", e);
+      }
+
+      // 2. Comprobar si tiene pago pendiente
       const myOrders = await window.ProfitivoAPI.getMyOrders(currentUser.id);
       const pendingLifetime = myOrders.find(o => o.order_type === 'LIFETIME_MEMBERSHIP' && o.status === 'PENDING_REVIEW');
 
@@ -356,6 +368,18 @@
         document.getElementById('section-pending-membership').style.display = 'none';
         document.getElementById('section-active-membership').style.display = 'block';
         loadCourses();
+      }
+
+      // 3. Polling automático si el alumno está esperando aprobación
+      if (!window._approvalPoller) {
+        window._approvalPoller = setInterval(async () => {
+          if (currentUser && !currentUser.is_lifetime_active) {
+            await refreshUserState();
+          } else if (currentUser && currentUser.is_lifetime_active) {
+            clearInterval(window._approvalPoller);
+            window._approvalPoller = null;
+          }
+        }, 6000);
       }
     }
 

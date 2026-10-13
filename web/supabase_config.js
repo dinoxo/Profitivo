@@ -518,44 +518,113 @@ const ProfitivoAPI = {
   },
 
   approveOrder: async (orderId, adminUser) => {
+    // 1. Obtener la orden (de Supabase si existe o de localStorage)
+    let targetOrder = null;
+    if (isSupabaseConfigured()) {
+      const remoteOrders = await sbFetch(`orders_transactions?id=eq.${orderId}&select=*`);
+      if (remoteOrders && remoteOrders.length > 0) targetOrder = remoteOrders[0];
+    }
+    const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
+    const orderIndex = orders.findIndex(o => o.id === orderId);
+    if (!targetOrder && orderIndex !== -1) {
+      targetOrder = orders[orderIndex];
+    }
+    if (!targetOrder) throw new Error("Orden de pago no encontrada.");
+
+    // 2. Marcar orden aprobada en Supabase y localStorage
     if (isSupabaseConfigured()) {
       await sbFetch(`orders_transactions?id=eq.${orderId}`, {
         method: 'PATCH',
         body: JSON.stringify({
           status: 'APPROVED',
+          reviewed_by: adminUser ? adminUser.username : 'Admin',
           reviewed_at: new Date().toISOString()
         })
       });
     }
-    const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
-    const orderIndex = orders.findIndex(o => o.id === orderId);
-    if (orderIndex === -1) throw new Error("Orden no encontrada");
 
-    orders[orderIndex].status = 'APPROVED';
-    orders[orderIndex].reviewed_by = adminUser.username;
-    orders[orderIndex].reviewed_at = new Date().toISOString();
-    localStorage.setItem(LOCAL_STORAGE_KEY_ORDERS, JSON.stringify(orders));
+    if (orderIndex !== -1) {
+      orders[orderIndex].status = 'APPROVED';
+      orders[orderIndex].reviewed_by = adminUser ? adminUser.username : 'Admin';
+      orders[orderIndex].reviewed_at = new Date().toISOString();
+      localStorage.setItem(LOCAL_STORAGE_KEY_ORDERS, JSON.stringify(orders));
+    } else {
+      targetOrder.status = 'APPROVED';
+      targetOrder.reviewed_by = adminUser ? adminUser.username : 'Admin';
+      targetOrder.reviewed_at = new Date().toISOString();
+      orders.unshift(targetOrder);
+      localStorage.setItem(LOCAL_STORAGE_KEY_ORDERS, JSON.stringify(orders));
+    }
 
-    // Si es membresía vitalicia, activar al alumno
-    const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
-    const userIndex = users.findIndex(u => u.id === orders[orderIndex].user_id);
-    if (userIndex !== -1) {
-      if (orders[orderIndex].order_type === 'LIFETIME_MEMBERSHIP') {
-        users[userIndex].is_lifetime_active = true;
+    const targetUserId = targetOrder.user_id;
+    const isLifetime = targetOrder.order_type === 'LIFETIME_MEMBERSHIP' || !targetOrder.course_id;
+
+    // 3. ACTIVAR MEMBRESÍA LIFETIME AL ESTUDIANTE EN SUPABASE
+    if (isSupabaseConfigured() && targetUserId) {
+      if (isLifetime) {
+        await sbFetch(`users?id=eq.${targetUserId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            is_lifetime_active: true
+          })
+        });
       }
-      if (!users[userIndex].unlocked_courses) users[userIndex].unlocked_courses = [];
-      if (orders[orderIndex].course_id) {
-        users[userIndex].unlocked_courses.push(orders[orderIndex].course_id);
-      }
-      localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
 
-      const cur = getSessionUser();
-      if (cur && cur.id === users[userIndex].id) {
-        setSessionUser(users[userIndex]);
+      if (targetOrder.course_id) {
+        try {
+          await sbFetch('user_course_access', {
+            method: 'POST',
+            body: JSON.stringify({
+              user_id: targetUserId,
+              course_id: targetOrder.course_id,
+              is_manually_granted: true
+            })
+          });
+        } catch (e) {
+          console.warn("user_course_access sync:", e);
+        }
       }
     }
 
-    return orders[orderIndex];
+    // 4. Actualizar mapa persistente de accesos por usuario
+    if (targetOrder.course_id && targetUserId) {
+      const accessMap = JSON.parse(localStorage.getItem('profitivo_user_access_map') || '{}');
+      if (!accessMap[targetUserId]) accessMap[targetUserId] = [];
+      if (!accessMap[targetUserId].includes(targetOrder.course_id)) {
+        accessMap[targetUserId].push(targetOrder.course_id);
+      }
+      localStorage.setItem('profitivo_user_access_map', JSON.stringify(accessMap));
+    }
+
+    // 5. Actualizar en base de datos local de usuarios
+    const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
+    const userIndex = users.findIndex(u => 
+      u.id === targetUserId || 
+      (targetOrder.user_email && u.email && u.email.toLowerCase() === targetOrder.user_email.toLowerCase()) ||
+      (targetOrder.user_name && u.username && u.username.toLowerCase() === targetOrder.user_name.toLowerCase())
+    );
+
+    if (userIndex !== -1) {
+      if (isLifetime) users[userIndex].is_lifetime_active = true;
+      if (!users[userIndex].unlocked_courses) users[userIndex].unlocked_courses = [];
+      if (targetOrder.course_id && !users[userIndex].unlocked_courses.includes(targetOrder.course_id)) {
+        users[userIndex].unlocked_courses.push(targetOrder.course_id);
+      }
+      localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
+    }
+
+    // 6. Si el alumno está logueado en este navegador, actualizar su sesión en tiempo real
+    const cur = getSessionUser();
+    if (cur && (cur.id === targetUserId || (targetOrder.user_email && cur.email === targetOrder.user_email))) {
+      if (isLifetime) cur.is_lifetime_active = true;
+      if (targetOrder.course_id) {
+        if (!cur.unlocked_courses) cur.unlocked_courses = [];
+        if (!cur.unlocked_courses.includes(targetOrder.course_id)) cur.unlocked_courses.push(targetOrder.course_id);
+      }
+      setSessionUser(cur);
+    }
+
+    return targetOrder;
   },
 
   rejectOrder: async (orderId, reason, adminUser) => {
@@ -565,20 +634,60 @@ const ProfitivoAPI = {
         body: JSON.stringify({
           status: 'REJECTED',
           rejection_reason: reason,
+          reviewed_by: adminUser ? adminUser.username : 'Admin',
           reviewed_at: new Date().toISOString()
         })
       });
     }
     const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
     const orderIndex = orders.findIndex(o => o.id === orderId);
-    if (orderIndex === -1) throw new Error("Orden no encontrada");
+    if (orderIndex !== -1) {
+      orders[orderIndex].status = 'REJECTED';
+      orders[orderIndex].rejection_reason = reason;
+      orders[orderIndex].reviewed_by = adminUser ? adminUser.username : 'Admin';
+      orders[orderIndex].reviewed_at = new Date().toISOString();
+      localStorage.setItem(LOCAL_STORAGE_KEY_ORDERS, JSON.stringify(orders));
+      return orders[orderIndex];
+    }
+    return { id: orderId, status: 'REJECTED' };
+  },
 
-    orders[orderIndex].status = 'REJECTED';
-    orders[orderIndex].rejection_reason = reason;
-    orders[orderIndex].reviewed_by = adminUser.username;
-    orders[orderIndex].reviewed_at = new Date().toISOString();
-    localStorage.setItem(LOCAL_STORAGE_KEY_ORDERS, JSON.stringify(orders));
-    return orders[orderIndex];
+  toggleUserLifetime: async (userId, shouldActivate) => {
+    if (isSupabaseConfigured()) {
+      await sbFetch(`users?id=eq.${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_lifetime_active: shouldActivate })
+      });
+    }
+
+    const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx !== -1) {
+      users[idx].is_lifetime_active = shouldActivate;
+      localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
+    }
+
+    const cur = getSessionUser();
+    if (cur && cur.id === userId) {
+      cur.is_lifetime_active = shouldActivate;
+      setSessionUser(cur);
+    }
+    return true;
+  },
+
+  getUserById: async (userId) => {
+    if (isSupabaseConfigured()) {
+      const remote = await sbFetch(`users?id=eq.${userId}&select=*`);
+      if (remote && remote.length > 0) {
+        const accessMap = JSON.parse(localStorage.getItem('profitivo_user_access_map') || '{}');
+        return {
+          ...remote[0],
+          unlocked_courses: accessMap[userId] || remote[0].unlocked_courses || []
+        };
+      }
+    }
+    const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
+    return users.find(u => u.id === userId) || null;
   },
 
   // Directorio de Usuarios (Con regla de aislamiento de PAPUCHO)
