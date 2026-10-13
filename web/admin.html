@@ -154,8 +154,32 @@
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;" id="grid-admin-courses">
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; margin-bottom: 35px;" id="grid-admin-courses">
         <!-- Llenado dinámicamente -->
+      </div>
+
+      <!-- Tabla de Glosario Administrable -->
+      <hr style="border: 0; border-top: 1px solid var(--border-subtle); margin: 30px 0 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h4 style="font-size: 1.2rem; color: var(--green-neon);">📖 Glosario de Conceptos Registrados</h4>
+          <p style="color: var(--text-secondary); font-size: 0.85rem;">Consulta, edita o elimina los términos y conceptos clave de cada curso.</p>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Curso</th>
+              <th>Término / Palabra</th>
+              <th>Definición Oficial</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-admin-glossary">
+            <!-- Llenado dinámicamente -->
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -226,7 +250,10 @@
 
         <div class="form-group">
           <label class="form-label">Asignar Nueva Contraseña Temporal:</label>
-          <input type="text" id="reset-new-password" class="form-input" placeholder="ej. profitivo2026*" required>
+          <div style="position: relative;">
+            <input type="password" id="reset-new-password" class="form-input" style="padding-right: 44px;" placeholder="ej. profitivo2026*" required>
+            <button type="button" onclick="togglePasswordVisibility('reset-new-password', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.15rem; padding: 4px;" title="Ver u ocultar contraseña">👁️</button>
+          </div>
           <span style="font-size: 0.75rem; color: var(--gold-prestige);">Entrega esta contraseña al alumno para que pueda volver a entrar.</span>
         </div>
 
@@ -238,25 +265,28 @@
   </div>
 
   <!-- ============================================================================== -->
-  <!-- MODAL: AGREGAR MÉTODO DE PAGO -->
+  <!-- MODAL: AGREGAR / EDITAR MÉTODO DE PAGO -->
   <!-- ============================================================================== -->
   <div class="modal-overlay" id="modal-add-method">
     <div class="modal-content">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h3 style="font-size: 1.3rem;">Nuevo Método de Cobro</h3>
+        <h3 id="modal-method-title" style="font-size: 1.3rem;">Nuevo Método de Cobro</h3>
         <button onclick="closeModal('modal-add-method')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
       </div>
 
       <form id="form-add-method" onsubmit="handleAddMethod(event)">
+        <input type="hidden" id="method-id">
+
         <div class="form-group">
           <label class="form-label">Título del Método:</label>
-          <input type="text" id="method-title" class="form-input" required placeholder="ej. Binance Pay, USDT TRC20, Banco...">
+          <input type="text" id="method-title" class="form-input" required placeholder="ej. Binance Pay, USDT TRC20, Pago Móvil Banesco...">
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
           <div class="form-group">
             <label class="form-label">Tipo de Método:</label>
             <select id="method-type" class="form-select">
+              <option value="PAGO_MOVIL">Pago Móvil</option>
               <option value="CRYPTO">Cripto Wallet</option>
               <option value="BINANCE_PAY">Binance Pay</option>
               <option value="BANK_TRANSFER">Transferencia Bancaria</option>
@@ -265,13 +295,13 @@
           </div>
           <div class="form-group">
             <label class="form-label">Moneda:</label>
-            <input type="text" id="method-currency" class="form-input" required placeholder="USDT, USD...">
+            <input type="text" id="method-currency" class="form-input" required placeholder="USDT, USD, VES...">
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Número de Cuenta o Dirección de Wallet:</label>
-          <input type="text" id="method-identifier" class="form-input" required placeholder="Dirección pública o número...">
+          <label class="form-label">Número de Cuenta, Teléfono o Dirección de Wallet:</label>
+          <input type="text" id="method-identifier" class="form-input" required placeholder="Dirección pública, teléfono, cédula o número...">
         </div>
 
         <div class="form-group">
@@ -279,22 +309,24 @@
           <textarea id="method-instructions" class="form-textarea" rows="2" placeholder="Pasos para enviar..."></textarea>
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">Guardar Método</button>
+        <button type="submit" id="btn-save-method" class="btn btn-primary" style="width: 100%; padding: 12px;">Guardar Método</button>
       </form>
     </div>
   </div>
 
   <!-- ============================================================================== -->
-  <!-- MODAL: AGREGAR TÉRMINO AL GLOSARIO -->
+  <!-- MODAL: AGREGAR / EDITAR TÉRMINO AL GLOSARIO -->
   <!-- ============================================================================== -->
   <div class="modal-overlay" id="modal-add-glossary">
     <div class="modal-content">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h3 style="font-size: 1.3rem;">Agregar Término al Glosario</h3>
+        <h3 id="modal-glossary-title" style="font-size: 1.3rem;">Agregar Término al Glosario</h3>
         <button onclick="closeModal('modal-add-glossary')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
       </div>
 
       <form id="form-add-glossary" onsubmit="handleAddGlossary(event)">
+        <input type="hidden" id="glossary-id">
+
         <div class="form-group">
           <label class="form-label">Seleccionar Curso Asociado:</label>
           <select id="glossary-course-select" class="form-select" required></select>
@@ -310,13 +342,18 @@
           <textarea id="glossary-definition" class="form-textarea" rows="3" required placeholder="Explicación clara del término..."></textarea>
         </div>
 
+        <button type="submit" id="btn-save-glossary" class="btn btn-primary" style="width: 100%; padding: 12px;">Guardar Término</button>
+      </form>
+    </div>
+  </div>
+
   <!-- ============================================================================== -->
-  <!-- MODAL: AGREGAR CURSO / SUBIR CLASE -->
+  <!-- MODAL: AGREGAR / EDITAR CURSO -->
   <!-- ============================================================================== -->
   <div class="modal-overlay" id="modal-add-course">
     <div class="modal-content" style="max-width: 650px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h3 style="font-size: 1.3rem;">📹 Publicar Nuevo Curso / Lección</h3>
+        <h3 id="modal-course-title" style="font-size: 1.3rem;">📹 Publicar Nuevo Curso / Lección</h3>
         <button onclick="closeModal('modal-add-course')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
       </div>
 
@@ -325,6 +362,7 @@
       </p>
 
       <form id="form-add-course" onsubmit="handleAddCourse(event)">
+        <input type="hidden" id="course-id">
         <div class="form-group">
           <label class="form-label">Título del Curso o Clase:</label>
           <input type="text" id="course-title" class="form-input" required placeholder="ej. Fundamentos de Smart Money Concepts & Liquidez">
@@ -403,6 +441,8 @@
     let currentAdmin = null;
     let allUsersCache = [];
     let allCoursesCache = [];
+    let allMethodsCache = [];
+    let allGlossaryCache = [];
 
     function showToast(text, isError = false) {
       const toast = document.getElementById('toast-msg');
@@ -412,6 +452,20 @@
     }
 
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+        btn.title = 'Ocultar contraseña';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+        btn.title = 'Ver contraseña';
+      }
+    }
 
     // Validación de Acceso de Administradores
     window.addEventListener('DOMContentLoaded', async () => {
@@ -437,6 +491,7 @@
       loadUsersDirectory();
       loadAdminMethods();
       loadAdminCourses();
+      loadAdminGlossary();
       loadRecoveryRequests();
     });
 
@@ -512,7 +567,7 @@
       }
     }
 
-    // 2. DIRECTORIO DE USUARIOS (Con aislamiento del Shadow Admin)
+    // 2. DIRECTORIO DE USUARIOS (Con persistencia individual de accesos)
     async function loadUsersDirectory() {
       allUsersCache = await window.ProfitivoAPI.getVisibleUsers(currentAdmin);
       renderUsersTable(allUsersCache);
@@ -556,7 +611,7 @@
             <td>
               <div style="display: flex; flex-direction: column; gap: 6px;">
                 ${allCoursesCache.map(c => {
-                  const hasAccess = u.is_lifetime_active && (c.is_included_in_lifetime || unlocked.includes(c.id));
+                  const hasAccess = unlocked.includes(c.id) || (u.is_lifetime_active && c.is_included_in_lifetime);
                   return `
                     <label style="display: flex; align-items: center; justify-content: space-between; font-size: 0.75rem; background: #060B14; padding: 4px 8px; border-radius: 4px; gap: 8px;">
                       <span style="color: #fff; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${c.title}</span>
@@ -582,8 +637,16 @@
     async function toggleCourseAccess(userId, courseId, shouldUnlock) {
       try {
         await window.ProfitivoAPI.toggleUserCourse(userId, courseId, shouldUnlock);
-        showToast(`Acceso actualizado.`);
-        loadUsersDirectory();
+        const u = allUsersCache.find(x => x.id === userId);
+        if (u) {
+          if (!u.unlocked_courses) u.unlocked_courses = [];
+          if (shouldUnlock) {
+            if (!u.unlocked_courses.includes(courseId)) u.unlocked_courses.push(courseId);
+          } else {
+            u.unlocked_courses = u.unlocked_courses.filter(id => id !== courseId);
+          }
+        }
+        showToast("Acceso al curso actualizado con éxito.");
       } catch (err) {
         showToast(err.message, true);
       }
@@ -614,26 +677,66 @@
 
     // 3. MÉTODOS DE PAGO
     async function loadAdminMethods() {
-      const methods = await window.ProfitivoAPI.getPaymentMethods();
+      allMethodsCache = await window.ProfitivoAPI.getPaymentMethods();
       const container = document.getElementById('grid-admin-methods');
-      container.innerHTML = methods.map(m => `
-        <div class="glass-card" style="padding: 18px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <strong style="color: var(--green-neon);">${m.title}</strong>
-            <span class="badge badge-green">${m.currency}</span>
+      if (allMethodsCache.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-muted); grid-column: 1 / -1; text-align: center; padding: 30px;">No hay métodos de pago configurados. Haz clic en '+ Nuevo Método' para agregar uno.</p>`;
+        return;
+      }
+      container.innerHTML = allMethodsCache.map(m => {
+        let typeBadge = m.method_type;
+        if (m.method_type === 'PAGO_MOVIL') typeBadge = '📱 Pago Móvil';
+        else if (m.method_type === 'CRYPTO') typeBadge = '🪙 Cripto Wallet';
+        else if (m.method_type === 'BINANCE_PAY') typeBadge = '🟡 Binance Pay';
+        else if (m.method_type === 'BANK_TRANSFER') typeBadge = '🏦 Transferencia Bancaria';
+
+        return `
+          <div class="glass-card" style="padding: 18px; position: relative;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+              <div>
+                <strong style="color: var(--green-neon); font-size: 1.05rem;">${m.title}</strong>
+                <div style="font-size: 0.72rem; color: var(--gold-prestige); margin-top: 2px;">${typeBadge}</div>
+              </div>
+              <span class="badge badge-green">${m.currency}</span>
+            </div>
+            <p style="font-family: monospace; background: #060B14; padding: 6px; border-radius: 4px; font-size: 0.8rem; word-break: break-all; margin: 10px 0 8px;">
+              ${m.account_identifier}
+            </p>
+            <p style="font-size: 0.8rem; color: var(--text-muted); min-height: 36px;">${m.instructions || 'Sin notas adicionales'}</p>
+            <div style="display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end;">
+              <button class="btn btn-outline" style="padding: 4px 12px; font-size: 0.78rem;" onclick="openEditMethodModal('${m.id}')">✏️ Editar</button>
+              <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.78rem;" onclick="handleDeleteMethod('${m.id}', '${m.title}')">🗑️ Eliminar</button>
+            </div>
           </div>
-          <p style="font-family: monospace; background: #060B14; padding: 6px; border-radius: 4px; font-size: 0.8rem; word-break: break-all; margin-bottom: 8px;">
-            ${m.account_identifier}
-          </p>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">${m.instructions}</p>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
-    function openAddMethodModal() { document.getElementById('modal-add-method').classList.add('active'); }
+    function openAddMethodModal() {
+      document.getElementById('form-add-method').reset();
+      document.getElementById('method-id').value = '';
+      document.getElementById('modal-method-title').textContent = "Nuevo Método de Cobro";
+      document.getElementById('btn-save-method').textContent = "Guardar Método";
+      document.getElementById('modal-add-method').classList.add('active');
+    }
+
+    function openEditMethodModal(id) {
+      const m = allMethodsCache.find(x => x.id === id);
+      if (!m) return;
+      document.getElementById('method-id').value = m.id;
+      document.getElementById('method-title').value = m.title || '';
+      document.getElementById('method-type').value = m.method_type || 'PAGO_MOVIL';
+      document.getElementById('method-currency').value = m.currency || '';
+      document.getElementById('method-identifier').value = m.account_identifier || '';
+      document.getElementById('method-instructions').value = m.instructions || '';
+      document.getElementById('modal-method-title').textContent = "✏️ Editar Método de Cobro";
+      document.getElementById('btn-save-method').textContent = "💾 Actualizar Método";
+      document.getElementById('modal-add-method').classList.add('active');
+    }
 
     async function handleAddMethod(e) {
       e.preventDefault();
+      const methodId = document.getElementById('method-id').value;
       const data = {
         title: document.getElementById('method-title').value.trim(),
         method_type: document.getElementById('method-type').value,
@@ -642,11 +745,23 @@
         instructions: document.getElementById('method-instructions').value.trim(),
         qr_image_url: 'logo.png'
       };
+      if (methodId) data.id = methodId;
 
       try {
         await window.ProfitivoAPI.savePaymentMethod(data);
-        showToast("Método de pago guardado.");
+        showToast(methodId ? "Método de pago actualizado correctamente." : "Método de pago guardado.");
         closeModal('modal-add-method');
+        loadAdminMethods();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function handleDeleteMethod(id, title) {
+      if (!confirm(`¿Estás seguro de eliminar el método de pago "${title}"?`)) return;
+      try {
+        await window.ProfitivoAPI.deletePaymentMethod(id);
+        showToast("Método de pago eliminado.");
         loadAdminMethods();
       } catch (err) {
         showToast(err.message, true);
@@ -667,7 +782,10 @@
               <span class="badge ${c.is_included_in_lifetime ? 'badge-green' : 'badge-gold'}">
                 ${c.is_included_in_lifetime ? 'BASE LIFETIME' : 'DESBLOQUEABLE $' + c.price}
               </span>
-              <button onclick="handleDeleteCourse('${c.id}', '${c.title}')" class="btn btn-danger" style="padding: 2px 8px; font-size: 0.72rem;" title="Eliminar curso">🗑️</button>
+              <div style="display: flex; gap: 6px;">
+                <button onclick="openEditCourseModal('${c.id}')" class="btn btn-outline" style="padding: 3px 8px; font-size: 0.72rem;" title="Editar curso">✏️</button>
+                <button onclick="handleDeleteCourse('${c.id}', '${c.title}')" class="btn btn-danger" style="padding: 3px 8px; font-size: 0.72rem;" title="Eliminar curso">🗑️</button>
+              </div>
             </div>
             <h4 style="font-size: 1.1rem; margin-bottom: 6px;">${c.title}</h4>
             <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 12px; min-height: 38px;">${c.description}</p>
@@ -684,8 +802,29 @@
 
     function openAddCourseModal() {
       document.getElementById('form-add-course').reset();
+      document.getElementById('course-id').value = '';
       document.getElementById('group-course-price').style.display = 'none';
       document.getElementById('course-upload-status').style.display = 'none';
+      document.getElementById('modal-course-title').textContent = "📹 Publicar Nuevo Curso / Lección";
+      document.getElementById('btn-save-course').textContent = "🚀 Publicar Curso en Profitivo";
+      document.getElementById('modal-add-course').classList.add('active');
+    }
+
+    function openEditCourseModal(id) {
+      const c = allCoursesCache.find(x => x.id === id);
+      if (!c) return;
+      document.getElementById('form-add-course').reset();
+      document.getElementById('course-id').value = c.id;
+      document.getElementById('course-title').value = c.title || '';
+      document.getElementById('course-category').value = c.category || 'TRADING';
+      document.getElementById('course-access-type').value = c.is_included_in_lifetime ? 'LIFETIME' : 'SPECIALIZED';
+      toggleCoursePriceInput(c.is_included_in_lifetime ? 'LIFETIME' : 'SPECIALIZED');
+      document.getElementById('course-price').value = c.price || 0;
+      document.getElementById('course-description').value = c.description || '';
+      document.getElementById('course-video-url').value = c.video_url || '';
+      document.getElementById('course-upload-status').style.display = 'none';
+      document.getElementById('modal-course-title').textContent = "✏️ Editar Curso / Lección";
+      document.getElementById('btn-save-course').textContent = "💾 Guardar Cambios del Curso";
       document.getElementById('modal-add-course').classList.add('active');
     }
 
@@ -695,19 +834,20 @@
 
     async function handleAddCourse(e) {
       e.preventDefault();
+      const courseId = document.getElementById('course-id').value;
       const btn = document.getElementById('btn-save-course');
       const statusDiv = document.getElementById('course-upload-status');
       const videoFileInput = document.getElementById('course-video-file');
       const videoFile = videoFileInput.files[0];
       const videoUrl = document.getElementById('course-video-url').value.trim();
 
-      if (!videoFile && !videoUrl) {
+      if (!courseId && !videoFile && !videoUrl) {
         showToast("Debes subir un archivo de video o ingresar una URL de video.", true);
         return;
       }
 
       btn.disabled = true;
-      btn.textContent = "⏳ Subiendo y Guardando Curso...";
+      btn.textContent = courseId ? "⏳ Actualizando Curso..." : "⏳ Subiendo y Guardando Curso...";
       statusDiv.style.display = 'block';
 
       const isLifetime = document.getElementById('course-access-type').value === 'LIFETIME';
@@ -720,6 +860,7 @@
         video_url: videoUrl,
         created_by: currentAdmin ? currentAdmin.username : 'Admin'
       };
+      if (courseId) courseData.id = courseId;
 
       try {
         const savedCourse = await window.ProfitivoAPI.saveCourse(courseData, videoFile);
@@ -737,13 +878,15 @@
 
         allCoursesCache = await window.ProfitivoAPI.getCourses();
         loadAdminCourses();
+        loadAdminGlossary();
+        loadUsersDirectory();
         closeModal('modal-add-course');
-        showToast("¡Curso publicado con éxito! Ya está disponible en el portal.");
+        showToast(courseId ? "¡Curso actualizado con éxito!" : "¡Curso publicado con éxito! Ya está disponible en el portal.");
       } catch (err) {
         showToast(err.message, true);
       } finally {
         btn.disabled = false;
-        btn.textContent = "🚀 Publicar Curso en Profitivo";
+        btn.textContent = courseId ? "💾 Guardar Cambios del Curso" : "🚀 Publicar Curso en Profitivo";
         statusDiv.style.display = 'none';
       }
     }
@@ -754,32 +897,94 @@
         await window.ProfitivoAPI.deleteCourse(courseId);
         allCoursesCache = await window.ProfitivoAPI.getCourses();
         loadAdminCourses();
+        loadAdminGlossary();
+        loadUsersDirectory();
         showToast("Curso eliminado correctamente.");
       } catch (err) {
         showToast(err.message, true);
       }
     }
 
-    function openAddGlossaryModal() { document.getElementById('modal-add-glossary').classList.add('active'); }
+    // 5. GLOSARIO DE CONCEPTOS
+    async function loadAdminGlossary() {
+      allGlossaryCache = await window.ProfitivoAPI.getAllGlossary();
+      const tbody = document.getElementById('tbody-admin-glossary');
+      if (allGlossaryCache.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay términos en el glosario registrados. Haz clic en '+ Agregar Término Glosario'.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = allGlossaryCache.map(g => {
+        const course = allCoursesCache.find(c => c.id === g.course_id);
+        const courseTitle = course ? course.title : 'General / Multi-Curso';
+        return `
+          <tr>
+            <td><span class="badge badge-gold" style="font-size: 0.75rem;">${courseTitle}</span></td>
+            <td><strong style="color: var(--green-neon);">${g.term}</strong></td>
+            <td style="color: var(--text-secondary); font-size: 0.85rem; max-width: 400px;">${g.definition}</td>
+            <td>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem;" onclick="openEditGlossaryModal('${g.id}')">✏️ Editar</button>
+                <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="handleDeleteGlossary('${g.id}', '${g.term}')">🗑️</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openAddGlossaryModal() {
+      document.getElementById('form-add-glossary').reset();
+      document.getElementById('glossary-id').value = '';
+      document.getElementById('modal-glossary-title').textContent = "Agregar Término al Glosario";
+      document.getElementById('btn-save-glossary').textContent = "Guardar Término";
+      document.getElementById('modal-add-glossary').classList.add('active');
+    }
+
+    function openEditGlossaryModal(id) {
+      const g = allGlossaryCache.find(x => x.id === id);
+      if (!g) return;
+      document.getElementById('glossary-id').value = g.id;
+      document.getElementById('glossary-course-select').value = g.course_id;
+      document.getElementById('glossary-term').value = g.term || '';
+      document.getElementById('glossary-definition').value = g.definition || '';
+      document.getElementById('modal-glossary-title').textContent = "✏️ Editar Término del Glosario";
+      document.getElementById('btn-save-glossary').textContent = "💾 Actualizar Término";
+      document.getElementById('modal-add-glossary').classList.add('active');
+    }
 
     async function handleAddGlossary(e) {
       e.preventDefault();
+      const glossaryId = document.getElementById('glossary-id').value;
       const termData = {
         course_id: document.getElementById('glossary-course-select').value,
         term: document.getElementById('glossary-term').value.trim(),
         definition: document.getElementById('glossary-definition').value.trim()
       };
+      if (glossaryId) termData.id = glossaryId;
 
       try {
-        await window.ProfitivoAPI.addGlossaryTerm(termData);
-        showToast("Término añadido al glosario del curso con éxito.");
+        await window.ProfitivoAPI.saveGlossaryTerm(termData);
+        showToast(glossaryId ? "Término del glosario actualizado con éxito." : "Término añadido al glosario con éxito.");
         closeModal('modal-add-glossary');
+        loadAdminGlossary();
       } catch (err) {
         showToast(err.message, true);
       }
     }
 
-    // 5. SOLICITUDES DE RECUPERACIÓN
+    async function handleDeleteGlossary(id, term) {
+      if (!confirm(`¿Estás seguro de eliminar el término "${term}" del glosario?`)) return;
+      try {
+        await window.ProfitivoAPI.deleteGlossaryTerm(id);
+        showToast("Término eliminado del glosario.");
+        loadAdminGlossary();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    // 6. SOLICITUDES DE RECUPERACIÓN
     async function loadRecoveryRequests() {
       const reqs = await window.ProfitivoAPI.getRecoveryRequests();
       const pending = reqs.filter(r => r.status === 'PENDING');

@@ -389,28 +389,68 @@ const ProfitivoAPI = {
   },
 
   savePaymentMethod: async (methodData) => {
+    const isEdit = !!methodData.id;
+    const methodId = methodData.id || ('pm-' + Date.now());
+
     if (isSupabaseConfigured()) {
-      await sbFetch('payment_methods', {
-        method: 'POST',
-        body: JSON.stringify({
-          title: methodData.title,
-          method_type: methodData.method_type,
-          currency: methodData.currency,
-          account_identifier: methodData.account_identifier,
-          instructions: methodData.instructions || '',
-          is_active: true
-        })
-      });
+      if (isEdit) {
+        await sbFetch(`payment_methods?id=eq.${methodId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            title: methodData.title,
+            method_type: methodData.method_type,
+            currency: methodData.currency,
+            account_identifier: methodData.account_identifier,
+            instructions: methodData.instructions || ''
+          })
+        });
+      } else {
+        await sbFetch('payment_methods', {
+          method: 'POST',
+          body: JSON.stringify({
+            title: methodData.title,
+            method_type: methodData.method_type,
+            currency: methodData.currency,
+            account_identifier: methodData.account_identifier,
+            instructions: methodData.instructions || '',
+            is_active: true
+          })
+        });
+      }
     }
+
     const methods = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_METHODS) || '[]');
-    if (methodData.id) {
-      const idx = methods.findIndex(m => m.id === methodData.id);
-      if (idx !== -1) methods[idx] = { ...methods[idx], ...methodData };
+    const newMethod = {
+      id: methodId,
+      title: methodData.title,
+      method_type: methodData.method_type,
+      currency: methodData.currency,
+      account_identifier: methodData.account_identifier,
+      instructions: methodData.instructions || '',
+      qr_image_url: methodData.qr_image_url || 'logo.png',
+      is_active: true
+    };
+
+    if (isEdit) {
+      const idx = methods.findIndex(m => m.id === methodId);
+      if (idx !== -1) methods[idx] = { ...methods[idx], ...newMethod };
+      else methods.push(newMethod);
     } else {
-      methods.push({ ...methodData, id: 'pm-' + Date.now(), is_active: true });
+      methods.push(newMethod);
     }
+
     localStorage.setItem(LOCAL_STORAGE_KEY_METHODS, JSON.stringify(methods));
-    return methods;
+    return newMethod;
+  },
+
+  deletePaymentMethod: async (methodId) => {
+    if (isSupabaseConfigured()) {
+      await sbFetch(`payment_methods?id=eq.${methodId}`, { method: 'DELETE' });
+    }
+    let methods = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_METHODS) || '[]');
+    methods = methods.filter(m => m.id !== methodId);
+    localStorage.setItem(LOCAL_STORAGE_KEY_METHODS, JSON.stringify(methods));
+    return true;
   },
 
   // Reporte de Pago con Compresión WebP de Comprobante
@@ -543,15 +583,22 @@ const ProfitivoAPI = {
 
   // Directorio de Usuarios (Con regla de aislamiento de PAPUCHO)
   getVisibleUsers: async (requestingUser) => {
+    const accessMap = JSON.parse(localStorage.getItem('profitivo_user_access_map') || '{}');
+
     if (isSupabaseConfigured()) {
       const endpoint = (requestingUser && requestingUser.role === 'SHADOW_SUPERADMIN')
         ? 'users?select=*'
         : 'users_management_view?select=*';
       const remote = await sbFetch(endpoint);
-      if (remote && remote.length > 0) return remote;
+      if (remote && remote.length > 0) {
+        return remote.map(u => ({
+          ...u,
+          unlocked_courses: accessMap[u.id] || u.unlocked_courses || []
+        }));
+      }
     }
+
     const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
-    // Si quien consulta no es PAPUCHO (SHADOW_SUPERADMIN), excluir a PAPUCHO por completo
     return users
       .filter(u => {
         if (requestingUser && requestingUser.role === 'SHADOW_SUPERADMIN') return true;
@@ -568,40 +615,83 @@ const ProfitivoAPI = {
         is_lifetime_active: u.is_lifetime_active,
         terms_accepted_at: u.terms_accepted_at,
         terms_ip_address: u.terms_ip_address,
-        unlocked_courses: u.unlocked_courses || []
-        // NUNCA expone password_hash
+        unlocked_courses: accessMap[u.id] || u.unlocked_courses || []
       }));
   },
 
   toggleUserCourse: async (userId, courseId, shouldUnlock) => {
-    const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
-    const idx = users.findIndex(u => u.id === userId);
-    if (idx === -1) throw new Error("Usuario no encontrado");
-
-    if (!users[idx].unlocked_courses) users[idx].unlocked_courses = [];
+    // 1. Guardar en mapa persistente de accesos por usuario
+    const accessMap = JSON.parse(localStorage.getItem('profitivo_user_access_map') || '{}');
+    let userCourses = accessMap[userId] ? [...accessMap[userId]] : [];
 
     if (shouldUnlock) {
-      if (!users[idx].unlocked_courses.includes(courseId)) {
-        users[idx].unlocked_courses.push(courseId);
-      }
+      if (!userCourses.includes(courseId)) userCourses.push(courseId);
     } else {
-      users[idx].unlocked_courses = users[idx].unlocked_courses.filter(c => c !== courseId);
+      userCourses = userCourses.filter(c => c !== courseId);
+    }
+    accessMap[userId] = userCourses;
+    localStorage.setItem('profitivo_user_access_map', JSON.stringify(accessMap));
+
+    // 2. Sincronizar en array local de usuarios
+    const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
+    const idx = users.findIndex(u => u.id === userId);
+    if (idx !== -1) {
+      users[idx].unlocked_courses = userCourses;
+      localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
     }
 
-    localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
-    return users[idx];
+    // 3. Si el usuario modificado es el de la sesión activa, actualizar sesión
+    const cur = getSessionUser();
+    if (cur && cur.id === userId) {
+      cur.unlocked_courses = userCourses;
+      setSessionUser(cur);
+    }
+
+    // 4. Intentar sincronización con Supabase user_course_access si está configurado
+    if (isSupabaseConfigured()) {
+      try {
+        if (shouldUnlock) {
+          await sbFetch('user_course_access', {
+            method: 'POST',
+            body: JSON.stringify({
+              user_id: userId,
+              course_id: courseId,
+              is_manually_granted: true
+            })
+          });
+        } else {
+          await sbFetch(`user_course_access?user_id=eq.${userId}&course_id=eq.${courseId}`, {
+            method: 'DELETE'
+          });
+        }
+      } catch (e) {
+        console.warn("Supabase user_course_access sync:", e);
+      }
+    }
+
+    return { userId, courseId, shouldUnlock, unlocked_courses: userCourses };
   },
 
   resetUserCredentials: async (userId, newTempPassword, newUsername) => {
     const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
     const idx = users.findIndex(u => u.id === userId);
-    if (idx === -1) throw new Error("Usuario no encontrado");
+    if (idx !== -1) {
+      if (newTempPassword) users[idx].password_hash = newTempPassword;
+      if (newUsername) users[idx].username = newUsername;
+      localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
+    }
 
-    if (newTempPassword) users[idx].password_hash = newTempPassword;
-    if (newUsername) users[idx].username = newUsername;
+    if (isSupabaseConfigured()) {
+      const updateData = {};
+      if (newTempPassword) updateData.password_hash = newTempPassword;
+      if (newUsername) updateData.username = newUsername;
+      await sbFetch(`users?id=eq.${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updateData)
+      });
+    }
 
-    localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
-    return users[idx];
+    return true;
   },
 
   // Solicitudes de Recuperación de Cuenta
@@ -632,7 +722,7 @@ const ProfitivoAPI = {
     }
   },
 
-  // Cursos y Glosario
+  // Cursos
   getCourses: async () => {
     if (isSupabaseConfigured()) {
       const remote = await sbFetch('courses?is_published=eq.true&order=sort_order.asc&select=*');
@@ -642,16 +732,20 @@ const ProfitivoAPI = {
   },
 
   saveCourse: async (courseData, videoFile) => {
+    const isEdit = !!courseData.id;
     const courses = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_COURSES) || '[]');
-    let videoUrl = courseData.video_url || '';
+    const courseId = courseData.id || ('course-' + Date.now());
 
-    // Manejo de archivo de video local o enlace directo
+    let videoUrl = courseData.video_url || '';
     if (videoFile) {
       videoUrl = URL.createObjectURL(videoFile);
+    } else if (isEdit && !videoUrl) {
+      const existing = courses.find(c => c.id === courseId);
+      if (existing) videoUrl = existing.video_url;
     }
 
-    const newCourse = {
-      id: courseData.id || ('course-' + Date.now()),
+    const updatedCourse = {
+      id: courseId,
       title: courseData.title,
       slug: (courseData.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
       category: courseData.category || 'TRADING',
@@ -662,25 +756,32 @@ const ProfitivoAPI = {
       video_url: videoUrl,
       is_published: true,
       created_by: courseData.created_by || 'Admin',
-      created_at: new Date().toISOString()
+      created_at: courseData.created_at || new Date().toISOString()
     };
 
     if (isSupabaseConfigured()) {
-      await sbFetch('courses', {
-        method: 'POST',
-        body: JSON.stringify(newCourse)
-      });
+      if (isEdit) {
+        await sbFetch(`courses?id=eq.${courseId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(updatedCourse)
+        });
+      } else {
+        await sbFetch('courses', {
+          method: 'POST',
+          body: JSON.stringify(updatedCourse)
+        });
+      }
     }
 
-    const existingIndex = courses.findIndex(c => c.id === newCourse.id);
+    const existingIndex = courses.findIndex(c => c.id === courseId);
     if (existingIndex !== -1) {
-      courses[existingIndex] = { ...courses[existingIndex], ...newCourse };
+      courses[existingIndex] = { ...courses[existingIndex], ...updatedCourse };
     } else {
-      courses.push(newCourse);
+      courses.push(updatedCourse);
     }
 
     localStorage.setItem(LOCAL_STORAGE_KEY_COURSES, JSON.stringify(courses));
-    return newCourse;
+    return updatedCourse;
   },
 
   deleteCourse: async (courseId) => {
@@ -693,6 +794,15 @@ const ProfitivoAPI = {
     return true;
   },
 
+  // Glosario Completo (Listar todos, Agregar, Editar, Eliminar)
+  getAllGlossary: async () => {
+    if (isSupabaseConfigured()) {
+      const remote = await sbFetch('course_glossary?order=sort_order.asc&select=*');
+      if (remote && remote.length > 0) return remote;
+    }
+    return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_GLOSSARY) || '[]');
+  },
+
   getCourseGlossary: async (courseId) => {
     if (isSupabaseConfigured()) {
       const remote = await sbFetch(`course_glossary?course_id=eq.${courseId}&order=sort_order.asc&select=*`);
@@ -702,18 +812,64 @@ const ProfitivoAPI = {
     return items.filter(g => g.course_id === courseId);
   },
 
-  addGlossaryTerm: async (termData) => {
+  saveGlossaryTerm: async (termData) => {
+    const isEdit = !!termData.id;
+    const termId = termData.id || ('g-' + Date.now());
+
     if (isSupabaseConfigured()) {
-      await sbFetch('course_glossary', {
-        method: 'POST',
-        body: JSON.stringify(termData)
-      });
+      if (isEdit) {
+        await sbFetch(`course_glossary?id=eq.${termId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            course_id: termData.course_id,
+            term: termData.term,
+            definition: termData.definition
+          })
+        });
+      } else {
+        await sbFetch('course_glossary', {
+          method: 'POST',
+          body: JSON.stringify({
+            course_id: termData.course_id,
+            term: termData.term,
+            definition: termData.definition
+          })
+        });
+      }
     }
+
     const items = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_GLOSSARY) || '[]');
-    const newTerm = { ...termData, id: 'g-' + Date.now() };
-    items.push(newTerm);
+    const newTerm = {
+      id: termId,
+      course_id: termData.course_id,
+      term: termData.term,
+      definition: termData.definition
+    };
+
+    if (isEdit) {
+      const idx = items.findIndex(g => g.id === termId);
+      if (idx !== -1) items[idx] = { ...items[idx], ...newTerm };
+      else items.push(newTerm);
+    } else {
+      items.push(newTerm);
+    }
+
     localStorage.setItem(LOCAL_STORAGE_KEY_GLOSSARY, JSON.stringify(items));
     return newTerm;
+  },
+
+  deleteGlossaryTerm: async (termId) => {
+    if (isSupabaseConfigured()) {
+      await sbFetch(`course_glossary?id=eq.${termId}`, { method: 'DELETE' });
+    }
+    let items = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_GLOSSARY) || '[]');
+    items = items.filter(g => g.id !== termId);
+    localStorage.setItem(LOCAL_STORAGE_KEY_GLOSSARY, JSON.stringify(items));
+    return true;
+  },
+
+  addGlossaryTerm: async (termData) => {
+    return ProfitivoAPI.saveGlossaryTerm(termData);
   }
 };
 

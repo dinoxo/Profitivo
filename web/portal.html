@@ -262,12 +262,18 @@
 
         <div class="form-group">
           <label class="form-label">Contraseña Actual:</label>
-          <input type="password" id="prof-current-pass" class="form-input" placeholder="Para confirmar cambios de clave">
+          <div style="position: relative;">
+            <input type="password" id="prof-current-pass" class="form-input" style="padding-right: 44px;" placeholder="Para confirmar cambios de clave">
+            <button type="button" onclick="togglePasswordVisibility('prof-current-pass', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.15rem; padding: 4px;" title="Ver u ocultar contraseña">👁️</button>
+          </div>
         </div>
 
         <div class="form-group">
           <label class="form-label">Nueva Contraseña:</label>
-          <input type="password" id="prof-new-pass" class="form-input" placeholder="••••••••">
+          <div style="position: relative;">
+            <input type="password" id="prof-new-pass" class="form-input" style="padding-right: 44px;" placeholder="••••••••">
+            <button type="button" onclick="togglePasswordVisibility('prof-new-pass', this)" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1.15rem; padding: 4px;" title="Ver u ocultar contraseña">👁️</button>
+          </div>
         </div>
 
         <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 10px;">
@@ -573,6 +579,20 @@
         document.getElementById('user-badge').textContent = `Estudiante: @${currentUser.username}`;
       } catch (err) {
         showToast(err.message, true);
+      }
+    }
+
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+        btn.title = 'Ocultar contraseña';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+        btn.title = 'Ver contraseña';
       }
     }
   </script>
