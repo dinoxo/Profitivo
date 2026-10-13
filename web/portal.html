@@ -80,8 +80,8 @@
                   </select>
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Número de Referencia / Hash (TxID):</label>
-                  <input type="text" id="rep-ref" class="form-input" required placeholder="ej. 8839201 o TxID crypto">
+                  <label class="form-label">Número de Referencia (Solo números):</label>
+                  <input type="text" id="rep-ref" class="form-input" required placeholder="ej. 8839201" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onkeypress="return event.charCode >= 48 && event.charCode <= 57">
                 </div>
               </div>
 
@@ -208,8 +208,8 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Referencia / Hash (TxID):</label>
-          <input type="text" id="unlock-ref" class="form-input" required placeholder="ej. 994012 o TxHash">
+          <label class="form-label">Número de Referencia (Solo números):</label>
+          <input type="text" id="unlock-ref" class="form-input" required placeholder="ej. 994012" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onkeypress="return event.charCode >= 48 && event.charCode <= 57">
         </div>
 
         <div class="form-group">
@@ -252,8 +252,8 @@
             <input type="text" id="prof-username" class="form-input" required>
           </div>
           <div class="form-group">
-            <label class="form-label">Teléfono:</label>
-            <input type="tel" id="prof-phone" class="form-input">
+            <label class="form-label">Número de Teléfono (Solo números):</label>
+            <input type="tel" id="prof-phone" class="form-input" placeholder="04120000000" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onkeypress="return event.charCode >= 48 && event.charCode <= 57">
           </div>
         </div>
 
