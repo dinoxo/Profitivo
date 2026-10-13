@@ -243,17 +243,28 @@
   </main>
 
   <!-- ============================================================================== -->
-  <!-- MODAL: VISOR DE COMPROBANTE DE PAGO -->
+  <!-- MODAL: VISOR DE COMPROBANTE DE PAGO (SOBREPUESTO ADELANTE) -->
   <!-- ============================================================================== -->
-  <div class="modal-overlay" id="modal-receipt">
-    <div class="modal-content" style="max-width: 600px; text-align: center;">
+  <div class="modal-overlay" id="modal-receipt" style="z-index: 2100 !important;" onclick="if(event.target === this) closeModal('modal-receipt')">
+    <div class="modal-content" style="max-width: 650px; text-align: center; position: relative; z-index: 2101; box-shadow: 0 25px 75px rgba(0, 0, 0, 0.95); border: 1px solid var(--green-neon);" onclick="event.stopPropagation()">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h3 style="font-size: 1.3rem;">Comprobante de Pago</h3>
-        <button onclick="closeModal('modal-receipt')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+        <h3 style="font-size: 1.3rem; color: var(--green-neon); display: flex; align-items: center; gap: 8px;">
+          🧾 Comprobante de Pago
+        </h3>
+        <button onclick="closeModal('modal-receipt')" style="background: none; border: none; color: var(--text-muted); font-size: 1.6rem; cursor: pointer; padding: 0 4px;" title="Cerrar">&times;</button>
       </div>
-      <img id="img-receipt-preview" src="" style="max-width: 100%; max-height: 480px; border-radius: 8px; border: 1px solid var(--border-subtle); margin-bottom: 16px;">
-      <div>
-        <button class="btn btn-outline" onclick="closeModal('modal-receipt')">Cerrar Visor</button>
+
+      <div style="background: #060B14; border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px; margin-bottom: 18px; max-height: 65vh; overflow: auto; display: flex; align-items: center; justify-content: center;">
+        <img id="img-receipt-preview" src="" alt="Comprobante de Pago" style="max-width: 100%; max-height: 58vh; object-fit: contain; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <a id="btn-receipt-open-tab" href="#" target="_blank" class="btn btn-outline" style="padding: 6px 14px; font-size: 0.8rem; text-decoration: none;">
+          🔍 Ver en Tamaño Completo ↗
+        </a>
+        <button class="btn btn-primary" onclick="closeModal('modal-receipt')" style="padding: 6px 18px; font-size: 0.85rem;">
+          Cerrar Comprobante
+        </button>
       </div>
     </div>
   </div>
@@ -657,8 +668,15 @@
     }
 
     function viewReceipt(url) {
-      document.getElementById('img-receipt-preview').src = url;
-      document.getElementById('modal-receipt').classList.add('active');
+      const img = document.getElementById('img-receipt-preview');
+      img.src = url || 'logo.png';
+      const openTabBtn = document.getElementById('btn-receipt-open-tab');
+      if (openTabBtn) {
+        openTabBtn.href = url || '#';
+      }
+      const modal = document.getElementById('modal-receipt');
+      modal.style.zIndex = '2100';
+      modal.classList.add('active');
     }
 
     async function approveOrder(id) {
