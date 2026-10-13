@@ -5,22 +5,39 @@
  */
 
 // ==============================================================================
-// 1. CREDENCIALES DE SUPABASE
-// PAPUCHO: Pega aquí los datos que te da tu proyecto de Supabase (Project Settings -> API)
+// 1. CREDENCIALES DE SUPABASE OFICIALES (PROFITIVO)
 // ==============================================================================
-const SUPABASE_URL = "https://TU_PROYECTO.supabase.co"; // Reemplaza por tu URL
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."; // Reemplaza por tu anon key
+const SUPABASE_URL = "https://xvzcgjtubwunpaxlqodm.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh2emNnanR1Ynd1bnBheGxxb2RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MDk1NTIsImV4cCI6MjEwNzQ4NTU1Mn0.kcCZ7hBHS_Xgof8QWNCMQvyE2N2D29mvqolomo7MzuY";
 
 const isSupabaseConfigured = () => {
   return SUPABASE_URL && !SUPABASE_URL.includes("TU_PROYECTO") && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length > 50;
 };
 
-const SB_HEADERS = {
-  'apikey': SUPABASE_ANON_KEY,
-  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-  'Content-Type': 'application/json',
-  'Prefer': 'return=representation'
-};
+// Cliente REST inteligente con fallback automático a localStorage
+async function sbFetch(path, options = {}) {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      ...options,
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': options.prefer || 'return=representation',
+        ...(options.headers || {})
+      }
+    });
+    if (!res.ok) {
+      return null; // Si las tablas aún no están creadas en Supabase, activa fallback seguro
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn(`Supabase network fallback (${path}):`, err);
+    return null;
+  }
+}
+
 
 // ==============================================================================
 // 2. MOTOR DE ALMACENAMIENTO LOCAL DE PRUEBA (FALLBACK INTELIGENTE)
@@ -243,6 +260,23 @@ function logout() {
 const ProfitivoAPI = {
   // Autenticación & Registro
   login: async (identifier, password) => {
+    // 1. Intentar autenticación remota en Supabase
+    if (isSupabaseConfigured()) {
+      const cleanId = encodeURIComponent(identifier.trim());
+      const query = `users?or=(username.eq.${cleanId},email.eq.${cleanId})&select=*`;
+      const sbUsers = await sbFetch(query);
+      if (sbUsers && sbUsers.length > 0) {
+        const user = sbUsers[0];
+        if (user.password_hash === password) {
+          setSessionUser(user);
+          return user;
+        } else {
+          throw new Error("Usuario o contraseña incorrectos.");
+        }
+      }
+    }
+
+    // 2. Fallback local si Supabase aún no tiene tablas creadas
     const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
     const user = users.find(u => 
       (u.username.toLowerCase() === identifier.toLowerCase() || u.email.toLowerCase() === identifier.toLowerCase()) &&
@@ -256,6 +290,43 @@ const ProfitivoAPI = {
   },
 
   register: async (userData) => {
+    // 1. Intentar registro remoto en Supabase
+    if (isSupabaseConfigured()) {
+      const checkUser = await sbFetch(`users?or=(username.eq.${encodeURIComponent(userData.username)},email.eq.${encodeURIComponent(userData.email)})&select=id`);
+      if (checkUser && checkUser.length > 0) {
+        throw new Error("Ese nombre de usuario o correo ya está en uso.");
+      }
+
+      const created = await sbFetch(`users`, {
+        method: 'POST',
+        body: JSON.stringify({
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          username: userData.username,
+          email: userData.email,
+          phone_number: userData.phone_number || '',
+          password_hash: userData.password,
+          role: 'STUDENT',
+          is_lifetime_active: false
+        })
+      });
+
+      if (created && created.length > 0) {
+        const newUser = created[0];
+        await sbFetch(`terms_acceptances`, {
+          method: 'POST',
+          body: JSON.stringify({
+            user_id: newUser.id,
+            terms_version: 'v1.0',
+            ip_address: '190.1.1.1'
+          })
+        });
+        setSessionUser(newUser);
+        return newUser;
+      }
+    }
+
+    // 2. Fallback local
     const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
     if (users.some(u => u.username.toLowerCase() === userData.username.toLowerCase())) {
       throw new Error("Ese nombre de usuario ya está en uso.");
@@ -310,10 +381,27 @@ const ProfitivoAPI = {
 
   // Métodos de Pago
   getPaymentMethods: async () => {
+    if (isSupabaseConfigured()) {
+      const remote = await sbFetch('payment_methods?is_active=eq.true&order=sort_order.asc&select=*');
+      if (remote && remote.length > 0) return remote;
+    }
     return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_METHODS) || '[]');
   },
 
   savePaymentMethod: async (methodData) => {
+    if (isSupabaseConfigured()) {
+      await sbFetch('payment_methods', {
+        method: 'POST',
+        body: JSON.stringify({
+          title: methodData.title,
+          method_type: methodData.method_type,
+          currency: methodData.currency,
+          account_identifier: methodData.account_identifier,
+          instructions: methodData.instructions || '',
+          is_active: true
+        })
+      });
+    }
     const methods = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_METHODS) || '[]');
     if (methodData.id) {
       const idx = methods.findIndex(m => m.id === methodData.id);
@@ -333,13 +421,12 @@ const ProfitivoAPI = {
     if (receiptFile && window.ProfitivoImageOptimizer) {
       try {
         const compressed = await window.ProfitivoImageOptimizer.compress(receiptFile, { maxWidth: 1600, quality: 0.82 });
-        receiptUrl = compressed.base64; // En base64 para preview instantáneo sin servidor
+        receiptUrl = compressed.base64; // En base64 para preview instantáneo sin saturar servidores
       } catch (e) {
         console.warn("Fallo compresión, usando archivo original:", e);
       }
     }
 
-    const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
     const newOrder = {
       id: 'ord-' + Date.now(),
       user_id: reportData.user_id,
@@ -358,23 +445,48 @@ const ProfitivoAPI = {
       created_at: new Date().toISOString()
     };
 
+    if (isSupabaseConfigured()) {
+      await sbFetch('orders_transactions', {
+        method: 'POST',
+        body: JSON.stringify(newOrder)
+      });
+    }
+
+    const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
     orders.unshift(newOrder);
     localStorage.setItem(LOCAL_STORAGE_KEY_ORDERS, JSON.stringify(orders));
     return newOrder;
   },
 
   getMyOrders: async (userId) => {
+    if (isSupabaseConfigured()) {
+      const remote = await sbFetch(`orders_transactions?user_id=eq.${userId}&order=created_at.desc&select=*`);
+      if (remote) return remote;
+    }
     const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
     return orders.filter(o => o.user_id === userId);
   },
 
   // Aprobación de Pagos (Administradores & PAPUCHO)
   getPendingOrders: async () => {
+    if (isSupabaseConfigured()) {
+      const remote = await sbFetch(`orders_transactions?status=eq.PENDING_REVIEW&order=created_at.desc&select=*`);
+      if (remote) return remote;
+    }
     const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
     return orders.filter(o => o.status === 'PENDING_REVIEW');
   },
 
   approveOrder: async (orderId, adminUser) => {
+    if (isSupabaseConfigured()) {
+      await sbFetch(`orders_transactions?id=eq.${orderId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status: 'APPROVED',
+          reviewed_at: new Date().toISOString()
+        })
+      });
+    }
     const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
     const orderIndex = orders.findIndex(o => o.id === orderId);
     if (orderIndex === -1) throw new Error("Orden no encontrada");
@@ -391,14 +503,12 @@ const ProfitivoAPI = {
       if (orders[orderIndex].order_type === 'LIFETIME_MEMBERSHIP') {
         users[userIndex].is_lifetime_active = true;
       }
-      // Guardar accesos a cursos
       if (!users[userIndex].unlocked_courses) users[userIndex].unlocked_courses = [];
       if (orders[orderIndex].course_id) {
         users[userIndex].unlocked_courses.push(orders[orderIndex].course_id);
       }
       localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
 
-      // Si es el usuario logueado, refrescar sesión
       const cur = getSessionUser();
       if (cur && cur.id === users[userIndex].id) {
         setSessionUser(users[userIndex]);
@@ -409,6 +519,16 @@ const ProfitivoAPI = {
   },
 
   rejectOrder: async (orderId, reason, adminUser) => {
+    if (isSupabaseConfigured()) {
+      await sbFetch(`orders_transactions?id=eq.${orderId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status: 'REJECTED',
+          rejection_reason: reason,
+          reviewed_at: new Date().toISOString()
+        })
+      });
+    }
     const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
     const orderIndex = orders.findIndex(o => o.id === orderId);
     if (orderIndex === -1) throw new Error("Orden no encontrada");
@@ -423,6 +543,13 @@ const ProfitivoAPI = {
 
   // Directorio de Usuarios (Con regla de aislamiento de PAPUCHO)
   getVisibleUsers: async (requestingUser) => {
+    if (isSupabaseConfigured()) {
+      const endpoint = (requestingUser && requestingUser.role === 'SHADOW_SUPERADMIN')
+        ? 'users?select=*'
+        : 'users_management_view?select=*';
+      const remote = await sbFetch(endpoint);
+      if (remote && remote.length > 0) return remote;
+    }
     const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
     // Si quien consulta no es PAPUCHO (SHADOW_SUPERADMIN), excluir a PAPUCHO por completo
     return users
@@ -507,6 +634,10 @@ const ProfitivoAPI = {
 
   // Cursos y Glosario
   getCourses: async () => {
+    if (isSupabaseConfigured()) {
+      const remote = await sbFetch('courses?is_published=eq.true&order=sort_order.asc&select=*');
+      if (remote && remote.length > 0) return remote;
+    }
     return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_COURSES) || '[]');
   },
 
@@ -514,27 +645,9 @@ const ProfitivoAPI = {
     const courses = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_COURSES) || '[]');
     let videoUrl = courseData.video_url || '';
 
-    // Manejo de archivo de video subido directamente por el administrador
+    // Manejo de archivo de video local o enlace directo
     if (videoFile) {
-      if (supabaseClient) {
-        // Subida directa al almacenamiento de Supabase (Bucket: courses_videos)
-        const fileExt = videoFile.name.split('.').pop();
-        const fileName = `course_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
-        const { data, error } = await supabaseClient.storage
-          .from('courses_videos')
-          .upload(fileName, videoFile, { cacheControl: '3600', upsert: true });
-
-        if (error) {
-          console.warn("Error subiendo a Supabase Storage, usando blob local:", error);
-          videoUrl = URL.createObjectURL(videoFile);
-        } else {
-          const { data: publicUrlData } = supabaseClient.storage.from('courses_videos').getPublicUrl(fileName);
-          videoUrl = publicUrlData.publicUrl;
-        }
-      } else {
-        // En entorno local/demostración: crear URL de objeto local
-        videoUrl = URL.createObjectURL(videoFile);
-      }
+      videoUrl = URL.createObjectURL(videoFile);
     }
 
     const newCourse = {
@@ -552,6 +665,13 @@ const ProfitivoAPI = {
       created_at: new Date().toISOString()
     };
 
+    if (isSupabaseConfigured()) {
+      await sbFetch('courses', {
+        method: 'POST',
+        body: JSON.stringify(newCourse)
+      });
+    }
+
     const existingIndex = courses.findIndex(c => c.id === newCourse.id);
     if (existingIndex !== -1) {
       courses[existingIndex] = { ...courses[existingIndex], ...newCourse };
@@ -564,6 +684,9 @@ const ProfitivoAPI = {
   },
 
   deleteCourse: async (courseId) => {
+    if (isSupabaseConfigured()) {
+      await sbFetch(`courses?id=eq.${courseId}`, { method: 'DELETE' });
+    }
     let courses = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_COURSES) || '[]');
     courses = courses.filter(c => c.id !== courseId);
     localStorage.setItem(LOCAL_STORAGE_KEY_COURSES, JSON.stringify(courses));
@@ -571,11 +694,21 @@ const ProfitivoAPI = {
   },
 
   getCourseGlossary: async (courseId) => {
+    if (isSupabaseConfigured()) {
+      const remote = await sbFetch(`course_glossary?course_id=eq.${courseId}&order=sort_order.asc&select=*`);
+      if (remote && remote.length > 0) return remote;
+    }
     const items = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_GLOSSARY) || '[]');
     return items.filter(g => g.course_id === courseId);
   },
 
   addGlossaryTerm: async (termData) => {
+    if (isSupabaseConfigured()) {
+      await sbFetch('course_glossary', {
+        method: 'POST',
+        body: JSON.stringify(termData)
+      });
+    }
     const items = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_GLOSSARY) || '[]');
     const newTerm = { ...termData, id: 'g-' + Date.now() };
     items.push(newTerm);
