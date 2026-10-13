@@ -489,7 +489,8 @@
       document.getElementById('player-title').textContent = title;
       const vid = document.getElementById('course-video');
       vid.src = videoUrl;
-      vid.play();
+      vid.load();
+      vid.play().catch(e => console.log("Autoplay bloqueado por el navegador:", e));
 
       // Cargar Glosario
       const glossary = await window.ProfitivoAPI.getCourseGlossary(courseId);
@@ -506,6 +507,14 @@
       }
 
       document.getElementById('modal-player').classList.add('active');
+    }
+
+    function pauseVideo() {
+      const vid = document.getElementById('course-video');
+      if (vid) {
+        vid.pause();
+        vid.src = '';
+      }
     }
 
     // Modal para desbloquear curso individual

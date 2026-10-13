@@ -310,10 +310,88 @@
           <textarea id="glossary-definition" class="form-textarea" rows="3" required placeholder="Explicación clara del término..."></textarea>
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">Guardar Término</button>
+  <!-- ============================================================================== -->
+  <!-- MODAL: AGREGAR CURSO / SUBIR CLASE -->
+  <!-- ============================================================================== -->
+  <div class="modal-overlay" id="modal-add-course">
+    <div class="modal-content" style="max-width: 650px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.3rem;">📹 Publicar Nuevo Curso / Lección</h3>
+        <button onclick="closeModal('modal-add-course')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+
+      <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 18px;">
+        Sube el video de la clase y configura el contenido. Se publicará en el portal para los alumnos autorizados de inmediato.
+      </p>
+
+      <form id="form-add-course" onsubmit="handleAddCourse(event)">
+        <div class="form-group">
+          <label class="form-label">Título del Curso o Clase:</label>
+          <input type="text" id="course-title" class="form-input" required placeholder="ej. Fundamentos de Smart Money Concepts & Liquidez">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+          <div class="form-group">
+            <label class="form-label">Categoría:</label>
+            <select id="course-category" class="form-select">
+              <option value="TRADING">Trading & Finanzas</option>
+              <option value="CRYPTO">Criptomonedas & Web3</option>
+              <option value="TECH_UX">Tecnología UX/UI</option>
+              <option value="PSYCHOLOGY">Psicología de Mercado</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Modalidad de Acceso:</label>
+            <select id="course-access-type" class="form-select" onchange="toggleCoursePriceInput(this.value)">
+              <option value="LIFETIME">Curso Base (Incluido en Membresía Vitalicia)</option>
+              <option value="SPECIALIZED">Curso Especializado (Venta Individual)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" id="group-course-price" style="display: none;">
+          <label class="form-label">Precio del Curso ($ USD / USDT):</label>
+          <input type="number" id="course-price" class="form-input" min="0" step="1" value="50" placeholder="50">
+          <small style="color: var(--gold-prestige);">El estudiante deberá pagar este monto y reportar comprobante para desbloquear este curso.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Descripción del Contenido:</label>
+          <textarea id="course-description" class="form-textarea" rows="2" required placeholder="¿Qué aprenderá el estudiante en esta lección?"></textarea>
+        </div>
+
+        <!-- Carga de Video -->
+        <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 16px; border-radius: 10px; margin-bottom: 16px;">
+          <h4 style="font-size: 0.95rem; color: var(--green-neon); margin-bottom: 8px;">🎬 Video de la Lección:</h4>
+          
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label class="form-label">Opción 1: Subir Archivo de Video desde tu Dispositivo (.mp4, .webm, .mov):</label>
+            <input type="file" id="course-video-file" class="form-input" accept="video/mp4,video/webm,video/ogg,video/quicktime">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Opción 2: O pegar Enlace directo del Video (URL):</label>
+            <input type="url" id="course-video-url" class="form-input" placeholder="https://.../video.mp4">
+          </div>
+          <div id="course-upload-status" style="margin-top: 8px; font-size: 0.82rem; color: var(--gold-prestige); display: none;">⏳ Procesando y subiendo video...</div>
+        </div>
+
+        <!-- Glosario Inicial Opcional -->
+        <div style="background: #0B1322; border: 1px solid var(--border-subtle); padding: 14px; border-radius: 10px; margin-bottom: 18px;">
+          <h4 style="font-size: 0.9rem; color: #fff; margin-bottom: 8px;">📖 Término Clave de Glosario para este Curso (Opcional):</h4>
+          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px;">
+            <input type="text" id="course-glossary-term" class="form-input" placeholder="Término (ej: Stop Loss)">
+            <input type="text" id="course-glossary-def" class="form-input" placeholder="Definición directa...">
+          </div>
+        </div>
+
+        <button type="submit" id="btn-save-course" class="btn btn-primary" style="width: 100%; padding: 12px;">
+          🚀 Publicar Curso en Profitivo
+        </button>
       </form>
     </div>
   </div>
+
 
   <div class="toast" id="toast-msg">Mensaje</div>
 
@@ -580,18 +658,106 @@
       const container = document.getElementById('grid-admin-courses');
       const select = document.getElementById('glossary-course-select');
 
-      container.innerHTML = allCoursesCache.map(c => `
-        <div class="glass-card" style="padding: 18px;">
-          <span class="badge ${c.is_included_in_lifetime ? 'badge-green' : 'badge-gold'}" style="margin-bottom: 8px;">
-            ${c.is_included_in_lifetime ? 'BASE LIFETIME' : 'DESBLOQUEABLE $' + c.price}
-          </span>
-          <h4 style="font-size: 1.1rem; margin-bottom: 6px;">${c.title}</h4>
-          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 12px;">${c.description}</p>
-          <div style="font-size: 0.8rem; color: var(--green-neon);">● Video configurado</div>
-        </div>
-      `).join('');
+      if (allCoursesCache.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-muted); grid-column: 1 / -1; text-align: center; padding: 30px;">No hay cursos registrados. Haz clic en '+ Nuevo Curso' para subir el primero.</p>`;
+      } else {
+        container.innerHTML = allCoursesCache.map(c => `
+          <div class="glass-card" style="padding: 18px; position: relative;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+              <span class="badge ${c.is_included_in_lifetime ? 'badge-green' : 'badge-gold'}">
+                ${c.is_included_in_lifetime ? 'BASE LIFETIME' : 'DESBLOQUEABLE $' + c.price}
+              </span>
+              <button onclick="handleDeleteCourse('${c.id}', '${c.title}')" class="btn btn-danger" style="padding: 2px 8px; font-size: 0.72rem;" title="Eliminar curso">🗑️</button>
+            </div>
+            <h4 style="font-size: 1.1rem; margin-bottom: 6px;">${c.title}</h4>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 12px; min-height: 38px;">${c.description}</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="font-size: 0.8rem; color: var(--green-neon);">● Video activo</div>
+              <small style="color: var(--text-muted); font-size: 0.75rem;">${c.category || 'TRADING'}</small>
+            </div>
+          </div>
+        `).join('');
+      }
 
       select.innerHTML = allCoursesCache.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+    }
+
+    function openAddCourseModal() {
+      document.getElementById('form-add-course').reset();
+      document.getElementById('group-course-price').style.display = 'none';
+      document.getElementById('course-upload-status').style.display = 'none';
+      document.getElementById('modal-add-course').classList.add('active');
+    }
+
+    function toggleCoursePriceInput(type) {
+      document.getElementById('group-course-price').style.display = (type === 'SPECIALIZED') ? 'block' : 'none';
+    }
+
+    async function handleAddCourse(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-save-course');
+      const statusDiv = document.getElementById('course-upload-status');
+      const videoFileInput = document.getElementById('course-video-file');
+      const videoFile = videoFileInput.files[0];
+      const videoUrl = document.getElementById('course-video-url').value.trim();
+
+      if (!videoFile && !videoUrl) {
+        showToast("Debes subir un archivo de video o ingresar una URL de video.", true);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "⏳ Subiendo y Guardando Curso...";
+      statusDiv.style.display = 'block';
+
+      const isLifetime = document.getElementById('course-access-type').value === 'LIFETIME';
+      const courseData = {
+        title: document.getElementById('course-title').value.trim(),
+        category: document.getElementById('course-category').value,
+        description: document.getElementById('course-description').value.trim(),
+        is_included_in_lifetime: isLifetime,
+        price: isLifetime ? 0 : parseFloat(document.getElementById('course-price').value || 0),
+        video_url: videoUrl,
+        created_by: currentAdmin ? currentAdmin.username : 'Admin'
+      };
+
+      try {
+        const savedCourse = await window.ProfitivoAPI.saveCourse(courseData, videoFile);
+
+        // Si se agregó un término de glosario inicial
+        const term = document.getElementById('course-glossary-term').value.trim();
+        const def = document.getElementById('course-glossary-def').value.trim();
+        if (term && def) {
+          await window.ProfitivoAPI.addGlossaryTerm({
+            course_id: savedCourse.id,
+            term: term,
+            definition: def
+          });
+        }
+
+        allCoursesCache = await window.ProfitivoAPI.getCourses();
+        loadAdminCourses();
+        closeModal('modal-add-course');
+        showToast("¡Curso publicado con éxito! Ya está disponible en el portal.");
+      } catch (err) {
+        showToast(err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "🚀 Publicar Curso en Profitivo";
+        statusDiv.style.display = 'none';
+      }
+    }
+
+    async function handleDeleteCourse(courseId, title) {
+      if (!confirm(`¿Estás seguro de eliminar el curso "${title}"? Esta acción no se puede deshacer.`)) return;
+      try {
+        await window.ProfitivoAPI.deleteCourse(courseId);
+        allCoursesCache = await window.ProfitivoAPI.getCourses();
+        loadAdminCourses();
+        showToast("Curso eliminado correctamente.");
+      } catch (err) {
+        showToast(err.message, true);
+      }
     }
 
     function openAddGlossaryModal() { document.getElementById('modal-add-glossary').classList.add('active'); }

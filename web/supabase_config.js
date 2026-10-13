@@ -510,6 +510,66 @@ const ProfitivoAPI = {
     return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_COURSES) || '[]');
   },
 
+  saveCourse: async (courseData, videoFile) => {
+    const courses = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_COURSES) || '[]');
+    let videoUrl = courseData.video_url || '';
+
+    // Manejo de archivo de video subido directamente por el administrador
+    if (videoFile) {
+      if (supabaseClient) {
+        // Subida directa al almacenamiento de Supabase (Bucket: courses_videos)
+        const fileExt = videoFile.name.split('.').pop();
+        const fileName = `course_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+        const { data, error } = await supabaseClient.storage
+          .from('courses_videos')
+          .upload(fileName, videoFile, { cacheControl: '3600', upsert: true });
+
+        if (error) {
+          console.warn("Error subiendo a Supabase Storage, usando blob local:", error);
+          videoUrl = URL.createObjectURL(videoFile);
+        } else {
+          const { data: publicUrlData } = supabaseClient.storage.from('courses_videos').getPublicUrl(fileName);
+          videoUrl = publicUrlData.publicUrl;
+        }
+      } else {
+        // En entorno local/demostración: crear URL de objeto local
+        videoUrl = URL.createObjectURL(videoFile);
+      }
+    }
+
+    const newCourse = {
+      id: courseData.id || ('course-' + Date.now()),
+      title: courseData.title,
+      slug: (courseData.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      category: courseData.category || 'TRADING',
+      description: courseData.description,
+      price: parseFloat(courseData.price) || 0.00,
+      is_included_in_lifetime: courseData.is_included_in_lifetime === true || courseData.is_included_in_lifetime === 'true',
+      thumbnail_url: courseData.thumbnail_url || 'logo.png',
+      video_url: videoUrl,
+      is_published: true,
+      created_by: courseData.created_by || 'Admin',
+      created_at: new Date().toISOString()
+    };
+
+    const existingIndex = courses.findIndex(c => c.id === newCourse.id);
+    if (existingIndex !== -1) {
+      courses[existingIndex] = { ...courses[existingIndex], ...newCourse };
+    } else {
+      courses.push(newCourse);
+    }
+
+    localStorage.setItem(LOCAL_STORAGE_KEY_COURSES, JSON.stringify(courses));
+    return newCourse;
+  },
+
+  deleteCourse: async (courseId) => {
+    let courses = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_COURSES) || '[]');
+    courses = courses.filter(c => c.id !== courseId);
+    localStorage.setItem(LOCAL_STORAGE_KEY_COURSES, JSON.stringify(courses));
+    return true;
+  },
+
   getCourseGlossary: async (courseId) => {
     const items = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_GLOSSARY) || '[]');
     return items.filter(g => g.course_id === courseId);
