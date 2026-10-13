@@ -222,8 +222,48 @@ function initLocalDatabase() {
     localStorage.setItem(LOCAL_STORAGE_KEY_GLOSSARY, JSON.stringify(defaultGlossary));
   }
 
-  if (!localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS)) {
-    localStorage.setItem(LOCAL_STORAGE_KEY_ORDERS, JSON.stringify([]));
+  if (!localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]').length === 0) {
+    const initialOrders = [
+      {
+        id: "ord-1791920834293",
+        user_id: "d9a1a339-c060-45f2-9890-68dbf98ffbd8",
+        user_name: "Demo Estudiante",
+        user_email: "demo1@profitivo.com",
+        course_id: null,
+        course_title: "Membresía Vitalicia",
+        order_type: "LIFETIME_MEMBERSHIP",
+        amount: 50,
+        currency: "USDT",
+        payment_method_title: "Tether USDT (Red TRC-20)",
+        reference_number: "121",
+        receipt_file_url: "logo.png",
+        user_notes: "cxzz",
+        status: "APPROVED",
+        created_at: "2026-10-13T19:47:14.293Z",
+        reviewed_by: "puñe",
+        reviewed_at: "2026-10-13T19:47:54.452Z"
+      },
+      {
+        id: "ord-1791920078966",
+        user_id: "d9a1a339-c060-45f2-9890-68dbf98ffbd8",
+        user_name: "Demo Estudiante",
+        user_email: "demo1@profitivo.com",
+        course_id: null,
+        course_title: "Membresía Vitalicia",
+        order_type: "LIFETIME_MEMBERSHIP",
+        amount: 50,
+        currency: "USDT",
+        payment_method_title: "Tether USDT (Red TRC-20)",
+        reference_number: "12321",
+        receipt_file_url: "logo.png",
+        user_notes: "prueba",
+        status: "APPROVED",
+        created_at: "2026-10-13T19:34:38.966Z",
+        reviewed_by: "puñe",
+        reviewed_at: "2026-10-13T19:35:28.533Z"
+      }
+    ];
+    localStorage.setItem(LOCAL_STORAGE_KEY_ORDERS, JSON.stringify(initialOrders));
   }
   if (!localStorage.getItem(LOCAL_STORAGE_KEY_RECOVERIES)) {
     localStorage.setItem(LOCAL_STORAGE_KEY_RECOVERIES, JSON.stringify([]));
@@ -507,7 +547,15 @@ const ProfitivoAPI = {
     return orders.filter(o => o.user_id === userId);
   },
 
-  // Aprobación de Pagos (Administradores & PAPUCHO)
+  // Consulta y Aprobación de Pagos (Administradores & PAPUCHO)
+  getAllOrders: async () => {
+    if (isSupabaseConfigured()) {
+      const remote = await sbFetch('orders_transactions?order=created_at.desc&select=*');
+      if (remote && remote.length > 0) return remote;
+    }
+    return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
+  },
+
   getPendingOrders: async () => {
     if (isSupabaseConfigured()) {
       const remote = await sbFetch(`orders_transactions?status=eq.PENDING_REVIEW&order=created_at.desc&select=*`);

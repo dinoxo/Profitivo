@@ -326,7 +326,27 @@
         return;
       }
 
-      document.getElementById('user-badge').textContent = `Estudiante: @${currentUser.username}`;
+      const isAdmin = currentUser.role === 'ADMIN_OWNER' || currentUser.role === 'SHADOW_SUPERADMIN';
+      if (isAdmin) {
+        currentUser.is_lifetime_active = true;
+        const roleLabel = currentUser.role === 'SHADOW_SUPERADMIN' ? '⚡ PAPUCHO (Master Admin)' : `🛡️ Admin: @${currentUser.username}`;
+        document.getElementById('user-badge').textContent = roleLabel;
+        
+        // Botón directo para regresar al panel de control si es administrador
+        const navContainer = document.querySelector('.navbar .nav-content > div');
+        if (navContainer && !document.getElementById('btn-back-admin')) {
+          const adminBtn = document.createElement('a');
+          adminBtn.id = 'btn-back-admin';
+          adminBtn.href = 'admin.html';
+          adminBtn.className = 'btn btn-primary';
+          adminBtn.style.padding = '8px 16px';
+          adminBtn.style.textDecoration = 'none';
+          adminBtn.textContent = '🛡️ Panel Admin';
+          navContainer.prepend(adminBtn);
+        }
+      } else {
+        document.getElementById('user-badge').textContent = `Estudiante: @${currentUser.username}`;
+      }
 
       // Cargar métodos de pago
       paymentMethodsCache = await window.ProfitivoAPI.getPaymentMethods();
@@ -337,23 +357,28 @@
     });
 
     async function refreshUserState() {
-      // 1. Refrescar estado real del estudiante desde Supabase o la base de datos
-      try {
-        const freshUser = await window.ProfitivoAPI.getUserById(currentUser.id);
-        if (freshUser) {
-          currentUser = { ...currentUser, ...freshUser };
-          window.ProfitivoSession.setUser(currentUser);
-          document.getElementById('user-badge').textContent = `Estudiante: @${currentUser.username}`;
+      const isAdmin = currentUser.role === 'ADMIN_OWNER' || currentUser.role === 'SHADOW_SUPERADMIN';
+      if (!isAdmin) {
+        // 1. Refrescar estado real del estudiante desde Supabase o la base de datos
+        try {
+          const freshUser = await window.ProfitivoAPI.getUserById(currentUser.id);
+          if (freshUser) {
+            currentUser = { ...currentUser, ...freshUser };
+            window.ProfitivoSession.setUser(currentUser);
+            document.getElementById('user-badge').textContent = `Estudiante: @${currentUser.username}`;
+          }
+        } catch (e) {
+          console.warn("No se pudo refrescar usuario en tiempo real:", e);
         }
-      } catch (e) {
-        console.warn("No se pudo refrescar usuario en tiempo real:", e);
+      } else {
+        currentUser.is_lifetime_active = true;
       }
 
       // 2. Comprobar si tiene pago pendiente
       const myOrders = await window.ProfitivoAPI.getMyOrders(currentUser.id);
       const pendingLifetime = myOrders.find(o => o.order_type === 'LIFETIME_MEMBERSHIP' && o.status === 'PENDING_REVIEW');
 
-      if (!currentUser.is_lifetime_active) {
+      if (!currentUser.is_lifetime_active && !isAdmin) {
         document.getElementById('section-pending-membership').style.display = 'block';
         document.getElementById('section-active-membership').style.display = 'none';
 
@@ -367,11 +392,11 @@
       } else {
         document.getElementById('section-pending-membership').style.display = 'none';
         document.getElementById('section-active-membership').style.display = 'block';
-        loadCourses();
+        await loadCourses();
       }
 
       // 3. Polling automático si el alumno está esperando aprobación
-      if (!window._approvalPoller) {
+      if (!isAdmin && !window._approvalPoller) {
         window._approvalPoller = setInterval(async () => {
           if (currentUser && !currentUser.is_lifetime_active) {
             await refreshUserState();
@@ -453,6 +478,7 @@
       const courses = await window.ProfitivoAPI.getCourses();
       const baseGrid = document.getElementById('grid-base-courses');
       const proGrid = document.getElementById('grid-pro-courses');
+      const isAdmin = currentUser.role === 'ADMIN_OWNER' || currentUser.role === 'SHADOW_SUPERADMIN';
 
       const userUnlocked = currentUser.unlocked_courses || [];
 
@@ -475,14 +501,14 @@
       // Cursos Especializados
       const proCourses = courses.filter(c => !c.is_included_in_lifetime);
       proGrid.innerHTML = proCourses.map(c => {
-        const isUnlocked = userUnlocked.includes(c.id);
+        const isUnlocked = isAdmin || userUnlocked.includes(c.id);
         return `
           <div class="glass-card" style="padding: 22px; border-color: ${isUnlocked ? 'var(--green-neon)' : 'var(--border-gold)'};">
             <div style="height: 140px; background: #060B14; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid var(--border-subtle);">
               <img src="${c.thumbnail_url || 'logo.png'}" style="max-height: 80px;">
             </div>
             <span class="badge ${isUnlocked ? 'badge-green' : 'badge-gold'}" style="margin-bottom: 8px;">
-              ${isUnlocked ? 'DESBLOQUEADO' : 'ESPECIALIZADO: $' + c.price}
+              ${isUnlocked ? (isAdmin ? 'ACCESO TOTAL ADMIN' : 'DESBLOQUEADO') : 'ESPECIALIZADO: $' + c.price}
             </span>
             <h4 style="font-size: 1.15rem; margin-bottom: 8px;">${c.title}</h4>
             <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 18px; min-height: 44px;">${c.description}</p>
@@ -498,6 +524,23 @@
           </div>
         `;
       }).join('');
+
+      // Auto-abrir el curso si viene en URL (?course=ID)
+      const targetCourseId = new URLSearchParams(window.location.search).get('course');
+      if (targetCourseId && !window._openedTargetCourse) {
+        window._openedTargetCourse = true;
+        const targetCourse = courses.find(c => c.id === targetCourseId);
+        if (targetCourse) {
+          const hasAccess = isAdmin || targetCourse.is_included_in_lifetime || userUnlocked.includes(targetCourse.id);
+          if (hasAccess) {
+            if (!targetCourse.is_included_in_lifetime) switchCourseTab('pro');
+            openPlayer(targetCourse.id, targetCourse.title, targetCourse.video_url);
+          } else {
+            switchCourseTab('pro');
+            openUnlockModal(targetCourse.id, targetCourse.title, targetCourse.price);
+          }
+        }
+      }
     }
 
     function switchCourseTab(tab) {

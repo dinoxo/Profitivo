@@ -448,8 +448,11 @@
       const grid = document.getElementById('courses-grid');
       try {
         const courses = await window.ProfitivoAPI.getCourses();
+        const loggedUser = window.ProfitivoSession.getUser();
+        const btnText = loggedUser ? '▶ Entrar al Curso ↗' : 'Ver Contenido ↗';
+
         grid.innerHTML = courses.map(c => `
-          <div class="glass-card" style="padding: 20px;">
+          <div class="glass-card" style="padding: 20px; cursor: pointer; transition: transform 0.2s, border-color 0.2s;" onclick="handleCourseAccess('${c.id}')">
             <div style="height: 140px; background: #060B14; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid var(--border-subtle); overflow: hidden;">
               <img src="${c.thumbnail_url || 'logo.png'}" style="max-height: 90px; object-fit: contain;">
             </div>
@@ -462,13 +465,22 @@
             <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 16px; min-height: 48px;">
               ${c.description}
             </p>
-            <button class="btn btn-outline" style="width: 100%; font-size: 0.85rem;" onclick="openLoginModal()">
-              Ver Contenido ↗
+            <button class="btn ${loggedUser ? 'btn-primary' : 'btn-outline'}" style="width: 100%; font-size: 0.85rem;" onclick="event.stopPropagation(); handleCourseAccess('${c.id}')">
+              ${btnText}
             </button>
           </div>
         `).join('');
       } catch (err) {
         grid.innerHTML = '<p style="color: var(--text-muted)">Cargando catálogo...</p>';
+      }
+    }
+
+    function handleCourseAccess(courseId) {
+      const user = window.ProfitivoSession.getUser();
+      if (user) {
+        window.location.href = 'portal.html?course=' + encodeURIComponent(courseId);
+      } else {
+        openLoginModal();
       }
     }
 

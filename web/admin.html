@@ -31,6 +31,33 @@
 
   <main class="container" style="padding: 35px 24px 80px;">
 
+    <!-- Tarjetas de Métricas Globales de la Plataforma -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 26px;">
+      <div class="glass-card" style="padding: 18px; border-left: 4px solid var(--green-neon);">
+        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">👥 Total Estudiantes</div>
+        <div style="font-size: 1.85rem; font-weight: 700; color: #fff;" id="metric-total-students">0</div>
+        <div style="font-size: 0.75rem; color: var(--green-neon); margin-top: 4px;">Alumnos registrados en la página</div>
+      </div>
+
+      <div class="glass-card" style="padding: 18px; border-left: 4px solid var(--gold-prestige);">
+        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">✓ Pagos Aprobados</div>
+        <div style="font-size: 1.85rem; font-weight: 700; color: #fff;" id="metric-approved-count">0</div>
+        <div style="font-size: 0.75rem; color: var(--gold-prestige); margin-top: 4px;">Transacciones verificadas</div>
+      </div>
+
+      <div class="glass-card" style="padding: 18px; border-left: 4px solid #00F2FE;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">💰 Total Recaudado</div>
+        <div style="font-size: 1.85rem; font-weight: 700; color: #00F2FE;" id="metric-total-revenue">$0.00 USDT</div>
+        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">Suma total de pagos aprobados</div>
+      </div>
+
+      <div class="glass-card" style="padding: 18px; border-left: 4px solid #FF9800;">
+        <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">⏳ Pagos por Revisar</div>
+        <div style="font-size: 1.85rem; font-weight: 700; color: #FF9800;" id="metric-pending-count">0</div>
+        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">Comprobantes en espera</div>
+      </div>
+    </div>
+
     <!-- Selector de Pestañas Administrativas -->
     <div style="display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap;">
       <button id="btn-tab-pagos" class="btn btn-primary" onclick="switchAdminTab('pagos')">
@@ -107,6 +134,7 @@
               <th>Contacto</th>
               <th>Aceptación Contrato (T&C)</th>
               <th>Membresía</th>
+              <th>Pagos Realizados</th>
               <th>Control Cursos Individuales</th>
               <th>Acciones</th>
             </tr>
@@ -261,6 +289,66 @@
           Aplicar y Restablecer Acceso
         </button>
       </form>
+    </div>
+  </div>
+
+  <!-- ============================================================================== -->
+  <!-- MODAL: HISTORIAL DE PAGOS DEL ESTUDIANTE -->
+  <!-- ============================================================================== -->
+  <div class="modal-overlay" id="modal-user-payments">
+    <div class="modal-content" style="max-width: 800px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h3 style="font-size: 1.35rem; color: var(--green-neon);">Historial de Pagos</h3>
+          <p id="modal-student-name" style="font-size: 1.05rem; font-weight: 700; color: #fff; margin-top: 2px;">Estudiante</p>
+        </div>
+        <button onclick="closeModal('modal-user-payments')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+      </div>
+
+      <!-- Resumen del Alumno -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; background: #060B14; border: 1px solid var(--border-subtle); padding: 14px; border-radius: 8px; margin-bottom: 20px;">
+        <div>
+          <small style="color: var(--text-muted); display: block;">Correo:</small>
+          <span id="modal-student-email" style="font-size: 0.85rem; color: #fff;">-</span>
+        </div>
+        <div>
+          <small style="color: var(--text-muted); display: block;">Teléfono:</small>
+          <span id="modal-student-phone" style="font-size: 0.85rem; color: #fff;">-</span>
+        </div>
+        <div>
+          <small style="color: var(--text-muted); display: block;">Estado de Membresía:</small>
+          <div id="modal-student-status-badge">-</div>
+        </div>
+        <div>
+          <small style="color: var(--text-muted); display: block;">Total Abonado / Pagado:</small>
+          <strong id="modal-student-total-paid" style="font-size: 1.15rem; color: var(--green-neon);">$0.00 USDT</strong>
+        </div>
+      </div>
+
+      <!-- Tabla de Pagos Realizados -->
+      <h4 style="font-size: 0.95rem; margin-bottom: 10px; color: #CBD5E1;">Detalle de Transacciones Reportadas:</h4>
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Concepto</th>
+              <th>Método</th>
+              <th>Referencia</th>
+              <th>Monto</th>
+              <th>Estado</th>
+              <th>Comprobante</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-student-payments">
+            <!-- Llenado dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 20px; text-align: right;">
+        <button class="btn btn-outline" onclick="closeModal('modal-user-payments')">Cerrar Detalle</button>
+      </div>
     </div>
   </div>
 
@@ -443,6 +531,7 @@
     let allCoursesCache = [];
     let allMethodsCache = [];
     let allGlossaryCache = [];
+    let allOrdersCache = [];
 
     function showToast(text, isError = false) {
       const toast = document.getElementById('toast-msg');
@@ -487,6 +576,7 @@
       }
 
       allCoursesCache = await window.ProfitivoAPI.getCourses();
+      await updateDashboardMetrics();
       loadPendingOrders();
       loadUsersDirectory();
       loadAdminMethods();
@@ -494,6 +584,34 @@
       loadAdminGlossary();
       loadRecoveryRequests();
     });
+
+    // Actualización de Métricas Globales Superiores
+    async function updateDashboardMetrics() {
+      try {
+        allOrdersCache = await window.ProfitivoAPI.getAllOrders();
+        const approvedOrders = allOrdersCache.filter(o => o.status === 'APPROVED');
+        const pendingOrders = allOrdersCache.filter(o => o.status === 'PENDING_REVIEW');
+        const totalRevenue = approvedOrders.reduce((sum, o) => sum + (parseFloat(o.amount) || 0), 0);
+        
+        // Total estudiantes
+        if (!allUsersCache || allUsersCache.length === 0) {
+          allUsersCache = await window.ProfitivoAPI.getVisibleUsers(currentAdmin);
+        }
+        const totalStudents = allUsersCache.length;
+
+        const elStudents = document.getElementById('metric-total-students');
+        const elApproved = document.getElementById('metric-approved-count');
+        const elRevenue = document.getElementById('metric-total-revenue');
+        const elPending = document.getElementById('metric-pending-count');
+
+        if (elStudents) elStudents.textContent = totalStudents;
+        if (elApproved) elApproved.textContent = approvedOrders.length;
+        if (elRevenue) elRevenue.textContent = `$${totalRevenue.toFixed(2)} USDT`;
+        if (elPending) elPending.textContent = pendingOrders.length;
+      } catch (err) {
+        console.error("Error calculando métricas del dashboard:", err);
+      }
+    }
 
     // Cambio de Pestañas
     function switchAdminTab(tab) {
@@ -549,6 +667,7 @@
         await window.ProfitivoAPI.approveOrder(id, currentAdmin);
         showToast("¡Pago aprobado! Membresía LIFETIME ACTIVA concedida.");
         loadPendingOrders();
+        await updateDashboardMetrics();
         loadUsersDirectory();
       } catch (err) {
         showToast(err.message, true);
@@ -562,14 +681,16 @@
         await window.ProfitivoAPI.rejectOrder(id, reason, currentAdmin);
         showToast("Pago marcado como rechazado.");
         loadPendingOrders();
+        await updateDashboardMetrics();
       } catch (err) {
         showToast(err.message, true);
       }
     }
 
-    // 2. DIRECTORIO DE USUARIOS (Con persistencia individual de accesos)
+    // 2. DIRECTORIO DE USUARIOS (Con persistencia individual de accesos e historial de pagos)
     async function loadUsersDirectory() {
       allUsersCache = await window.ProfitivoAPI.getVisibleUsers(currentAdmin);
+      await updateDashboardMetrics();
       renderUsersTable(allUsersCache);
     }
 
@@ -578,9 +699,21 @@
       const filtered = allUsersCache.filter(u => 
         u.username.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
-        u.first_name.toLowerCase().includes(q)
+        (u.first_name && u.first_name.toLowerCase().includes(q)) ||
+        (u.last_name && u.last_name.toLowerCase().includes(q))
       );
       renderUsersTable(filtered);
+    }
+
+    function getUserOrdersList(user) {
+      return (allOrdersCache || []).filter(o => 
+        o.user_id === user.id || 
+        (o.user_email && user.email && o.user_email.toLowerCase() === user.email.toLowerCase()) ||
+        (o.user_name && (
+          o.user_name.toLowerCase() === user.username.toLowerCase() || 
+          o.user_name.toLowerCase() === `${user.first_name} ${user.last_name}`.trim().toLowerCase()
+        ))
+      );
     }
 
     function renderUsersTable(users) {
@@ -588,11 +721,18 @@
       tbody.innerHTML = users.map(u => {
         const termsDate = u.terms_accepted_at ? new Date(u.terms_accepted_at).toLocaleString() : 'Pendiente';
         const unlocked = u.unlocked_courses || [];
+        
+        // Calcular pagos asociados al usuario
+        const userOrders = getUserOrdersList(u);
+        const approvedOrders = userOrders.filter(o => o.status === 'APPROVED');
+        const totalPaid = approvedOrders.reduce((sum, o) => sum + (parseFloat(o.amount) || 0), 0);
 
         return `
           <tr>
-            <td>
-              <strong>${u.first_name} ${u.last_name}</strong>
+            <td style="cursor: pointer;" onclick="viewStudentPayments('${u.id}')" title="Clic para ver historial de pagos de ${u.first_name} ${u.last_name}">
+              <strong style="color: #fff; text-decoration: underline; text-decoration-color: var(--green-neon); text-underline-offset: 3px;">
+                ${u.first_name} ${u.last_name}
+              </strong>
               <div style="font-size: 0.8rem; color: var(--green-neon);">@${u.username}</div>
             </td>
             <td>
@@ -616,6 +756,11 @@
               </div>
             </td>
             <td>
+              <button class="btn btn-outline" style="padding: 5px 10px; font-size: 0.78rem; border-color: ${userOrders.length > 0 ? 'var(--green-neon)' : 'var(--border-subtle)'};" onclick="viewStudentPayments('${u.id}')" title="Ver detalle de pagos">
+                💳 ${userOrders.length} Pago(s) • <strong style="color: var(--green-neon);">$${totalPaid.toFixed(2)}</strong>
+              </button>
+            </td>
+            <td>
               <div style="display: flex; flex-direction: column; gap: 6px;">
                 ${allCoursesCache.map(c => {
                   const hasAccess = unlocked.includes(c.id) || (u.is_lifetime_active && c.is_included_in_lifetime);
@@ -632,13 +777,71 @@
               </div>
             </td>
             <td>
-              <button class="btn btn-outline" style="padding: 6px 12px; font-size: 0.8rem;" onclick="openResetUserModal('${u.id}', '${u.username}')">
-                🔑 Restablecer
-              </button>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <button class="btn btn-primary" style="padding: 5px 10px; font-size: 0.78rem;" onclick="viewStudentPayments('${u.id}')">
+                  👁️ Ver Pagos
+                </button>
+                <button class="btn btn-outline" style="padding: 5px 10px; font-size: 0.78rem;" onclick="openResetUserModal('${u.id}', '${u.username}')">
+                  🔑 Restablecer
+                </button>
+              </div>
             </td>
           </tr>
         `;
       }).join('');
+    }
+
+    // Modal: Ver Historial de Pagos de un Estudiante
+    function viewStudentPayments(userId) {
+      const u = allUsersCache.find(x => x.id === userId);
+      if (!u) return;
+
+      const userOrders = getUserOrdersList(u);
+      const approvedOrders = userOrders.filter(o => o.status === 'APPROVED');
+      const totalPaid = approvedOrders.reduce((sum, o) => sum + (parseFloat(o.amount) || 0), 0);
+
+      document.getElementById('modal-student-name').textContent = `${u.first_name} ${u.last_name} (@${u.username})`;
+      document.getElementById('modal-student-email').textContent = u.email || 'N/A';
+      document.getElementById('modal-student-phone').textContent = u.phone_number || 'Sin teléfono';
+      document.getElementById('modal-student-status-badge').innerHTML = u.is_lifetime_active 
+        ? '<span class="badge badge-green">LIFETIME ACTIVA</span>' 
+        : '<span class="badge badge-locked">SIN MEMBRESÍA</span>';
+      document.getElementById('modal-student-total-paid').textContent = `$${totalPaid.toFixed(2)} USDT`;
+
+      const tbody = document.getElementById('tbody-student-payments');
+      if (userOrders.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 22px;">Este estudiante no tiene reportes de pago registrados en el sistema.</td></tr>`;
+      } else {
+        tbody.innerHTML = userOrders.map(o => {
+          let badgeClass = 'badge-locked';
+          let statusText = 'Pendiente de Revisión';
+          if (o.status === 'APPROVED') {
+            badgeClass = 'badge-green';
+            statusText = '✓ Aprobado';
+          } else if (o.status === 'REJECTED') {
+            badgeClass = 'badge-danger';
+            statusText = '✕ Rechazado';
+          }
+
+          const receiptBtn = o.receipt_file_url 
+            ? `<button class="btn btn-outline" style="padding: 3px 8px; font-size: 0.75rem;" onclick="viewReceipt('${o.receipt_file_url}')">👁️ Ver</button>`
+            : `<span style="color: var(--text-muted); font-size: 0.75rem;">Sin foto</span>`;
+
+          return `
+            <tr>
+              <td><small style="color: var(--text-muted);">${new Date(o.created_at).toLocaleDateString()}</small></td>
+              <td><strong>${o.course_title || (o.order_type === 'LIFETIME_MEMBERSHIP' ? 'Membresía Vitalicia' : 'Curso')}</strong></td>
+              <td><small>${o.payment_method_title || 'N/A'}</small></td>
+              <td><code style="background: #060B14; padding: 2px 6px; border-radius: 4px; color: #fff; font-size: 0.78rem;">${o.reference_number || 'N/A'}</code></td>
+              <td><strong style="color: var(--green-neon);">$${o.amount} ${o.currency || 'USDT'}</strong></td>
+              <td><span class="badge ${badgeClass}">${statusText}</span></td>
+              <td>${receiptBtn}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('modal-user-payments').classList.add('active');
     }
 
     async function toggleLifetimeAccess(userId, shouldActivate) {
@@ -810,9 +1013,11 @@
             </div>
             <h4 style="font-size: 1.1rem; margin-bottom: 6px;">${c.title}</h4>
             <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 12px; min-height: 38px;">${c.description}</p>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; border-top: 1px solid var(--border-subtle); padding-top: 10px;">
               <div style="font-size: 0.8rem; color: var(--green-neon);">● Video activo</div>
-              <small style="color: var(--text-muted); font-size: 0.75rem;">${c.category || 'TRADING'}</small>
+              <a href="portal.html?course=${c.id}" target="_blank" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.75rem; text-decoration: none;">
+                ▶ Ver Clase ↗
+              </a>
             </div>
           </div>
         `).join('');
