@@ -439,6 +439,7 @@ input:checked + .slider:before {
 .social-card-tiktok:hover { border-color: #00F2FE; box-shadow: 0 10px 25px rgba(0, 242, 254, 0.25); }
 .social-card-x:hover { border-color: #FFFFFF; box-shadow: 0 10px 25px rgba(255, 255, 255, 0.2); }
 .social-card-telegram:hover { border-color: #26A5E4; box-shadow: 0 10px 25px rgba(38, 165, 228, 0.25); }
+.social-card-youtube:hover { border-color: #FF4444; box-shadow: 0 10px 25px rgba(255, 68, 68, 0.25); }
 .social-card-linktree:hover { border-color: var(--green-neon); box-shadow: 0 10px 25px var(--green-glow); }
 
 /* Adaptabilidad para Dispositivos Móviles (Smartphones <= 768px) */
