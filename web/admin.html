@@ -1252,10 +1252,10 @@
         <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 10px 14px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
           <input type="text" id="cat-name-${cat.id}" class="form-input" value="${escapeHtmlAttr(cat.name)}" style="flex: 1; padding: 7px 10px; font-size: 0.88rem;">
           <div style="display: flex; gap: 6px;">
-            <button type="button" class="btn btn-outline" onclick="handleUpdateCategory('${cat.id}')" style="padding: 6px 12px; font-size: 0.78rem;" title="Guardar cambios de esta categoría">
+            <button type="button" class="btn btn-outline" onclick="handleUpdateCategory('${cat.id}', this)" style="padding: 6px 12px; font-size: 0.78rem;" title="Guardar cambios de esta categoría">
               💾 Guardar
             </button>
-            <button type="button" class="btn btn-danger" onclick="handleDeleteCategory('${cat.id}')" style="padding: 6px 10px; font-size: 0.78rem;" title="Eliminar categoría">
+            <button type="button" class="btn btn-danger" onclick="handleDeleteCategory('${cat.id}', this)" style="padding: 6px 10px; font-size: 0.78rem;" title="Eliminar categoría">
               🗑️
             </button>
           </div>
@@ -1269,6 +1269,9 @@
       const name = input.value.trim();
       if (!name) return;
 
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "⏳ Creando..."; }
+
       try {
         await window.ProfitivoAPI.saveCategory({ name });
         input.value = '';
@@ -1278,16 +1281,24 @@
         loadAdminCourses();
       } catch (err) {
         showToast(err.message, true);
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "+ Crear Categoría"; }
       }
     }
 
-    async function handleUpdateCategory(catId) {
+    async function handleUpdateCategory(catId, btnEl) {
       const input = document.getElementById(`cat-name-${catId}`);
       if (!input) return;
       const newName = input.value.trim();
       if (!newName) {
         showToast("El nombre de la categoría no puede estar vacío.", true);
         return;
+      }
+
+      const origText = btnEl ? btnEl.textContent : '';
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.textContent = "⏳ Guardando...";
       }
 
       try {
@@ -1298,6 +1309,10 @@
         loadAdminCourses();
       } catch (err) {
         showToast(err.message, true);
+        if (btnEl) {
+          btnEl.disabled = false;
+          btnEl.textContent = origText;
+        }
       }
     }
 
@@ -1375,6 +1390,7 @@
       statusDiv.style.display = 'block';
 
       const isLifetime = document.getElementById('course-access-type').value === 'LIFETIME';
+      const glossaryList = getCourseGlossaryValues();
       const courseData = {
         title: document.getElementById('course-title').value.trim(),
         category: document.getElementById('course-category').value,
@@ -1382,36 +1398,13 @@
         is_included_in_lifetime: isLifetime,
         price: isLifetime ? 0 : parseFloat(document.getElementById('course-price').value || 0),
         video_url: videoUrl,
-        created_by: currentAdmin ? currentAdmin.username : 'Admin'
+        created_by: currentAdmin ? currentAdmin.username : 'Admin',
+        glossary_terms: glossaryList
       };
       if (courseId) courseData.id = courseId;
 
       try {
         const savedCourse = await window.ProfitivoAPI.saveCourse(courseData, videoFile);
-
-        // 1. Eliminar términos de glosario quitados con el botón '-'
-        for (const remId of removedCourseGlossaryIds) {
-          try {
-            await window.ProfitivoAPI.deleteGlossaryTerm(remId);
-          } catch (err) {
-            console.warn("Error eliminando término:", err);
-          }
-        }
-
-        // 2. Guardar todos los términos de glosario ingresados (múltiples)
-        const glossaryList = getCourseGlossaryValues();
-        for (const item of glossaryList) {
-          try {
-            await window.ProfitivoAPI.saveGlossaryTerm({
-              id: item.id || undefined,
-              course_id: savedCourse.id,
-              term: item.term,
-              definition: item.definition
-            });
-          } catch (err) {
-            console.warn("Error guardando término:", err);
-          }
-        }
 
         allCoursesCache = await window.ProfitivoAPI.getCourses();
         loadAdminCourses();

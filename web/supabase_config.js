@@ -46,33 +46,53 @@ async function sbFetch(path, options = {}) {
 // ==============================================================================
 const PROFITIVO_CLOUD_CONFIG = {
   ENDPOINT: '/api/sync-data',
-  RAW_URL: 'https://raw.githubusercontent.com/puneta29/profitivo-videos/main/data/profitivo_cloud_db.json',
   GITHUB_API: 'https://api.github.com/repos/puneta29/profitivo-videos/contents/data/profitivo_cloud_db.json',
   GITHUB_TOKEN: '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'
 };
 
 const ProfitivoCloudDB = {
   _cache: null,
+  _lastUpdated: 0,
 
-  fetchCloud: async function() {
+  fetchCloud: async function(force = false) {
+    // Si tenemos datos en caché actualizados hace menos de 3.5 segundos, usarlos directamente para no sufrir condiciones de carrera
+    if (!force && this._cache && (Date.now() - this._lastUpdated < 3500)) {
+      return this._cache;
+    }
+
     try {
-      // 1. Intentar por Cloudflare Pages Function oficial
+      // 1. Intentar por Cloudflare Pages Function oficial con cache-busting estricto
       try {
-        const res = await fetch(`${PROFITIVO_CLOUD_CONFIG.ENDPOINT}?_t=${Date.now()}`);
+        const res = await fetch(`${PROFITIVO_CLOUD_CONFIG.ENDPOINT}?_t=${Date.now()}&_force=${force ? 'true' : 'false'}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store' }
+        });
         if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
           const json = await res.json();
           if (json.success && json.data) {
             this._cache = json.data;
+            this._lastUpdated = Date.now();
             return json.data;
           }
         }
       } catch (e) {}
 
-      // 2. Fallback a raw CDN mundial
-      const rawRes = await fetch(`${PROFITIVO_CLOUD_CONFIG.RAW_URL}?_t=${Date.now()}`);
-      if (rawRes.ok && rawRes.headers.get('content-type')?.includes('application/json')) {
-        const data = await rawRes.json();
+      // 2. Fallback directo a GitHub Contents API (cero lag de CDN Fastly)
+      const ghRes = await fetch(PROFITIVO_CLOUD_CONFIG.GITHUB_API, {
+        headers: {
+          'Authorization': `Bearer ${PROFITIVO_CLOUD_CONFIG.GITHUB_TOKEN}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      if (ghRes.ok) {
+        const ghJson = await ghRes.json();
+        const binary = atob(ghJson.content.replace(/\s/g, ''));
+        const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+        const decoded = new TextDecoder('utf-8').decode(bytes);
+        const data = JSON.parse(decoded);
         this._cache = data;
+        this._lastUpdated = Date.now();
         return data;
       }
     } catch (err) {
@@ -82,7 +102,59 @@ const ProfitivoCloudDB = {
   },
 
   dispatch: async function(action, payload) {
-    // 1. Intentar por endpoint web oficial
+    // 1. Actualización optimista inmediata en memoria RAM para respuesta de UI instantánea
+    if (!this._cache) {
+      this._cache = { courses: [], glossary: [], categories: [], user_access_map: {} };
+    }
+    if (action === 'SAVE_CATEGORY') {
+      if (!this._cache.categories) this._cache.categories = [];
+      const idx = this._cache.categories.findIndex(c => c.id === payload.id);
+      if (idx !== -1) this._cache.categories[idx] = { ...this._cache.categories[idx], ...payload };
+      else this._cache.categories.push(payload);
+    } else if (action === 'DELETE_CATEGORY') {
+      if (this._cache.categories) this._cache.categories = this._cache.categories.filter(c => c.id !== payload.id);
+    } else if (action === 'SAVE_COURSE') {
+      if (!this._cache.courses) this._cache.courses = [];
+      const idx = this._cache.courses.findIndex(c => c.id === payload.id);
+      if (idx !== -1) this._cache.courses[idx] = { ...this._cache.courses[idx], ...payload };
+      else this._cache.courses.push(payload);
+      if (Array.isArray(payload.glossary_terms)) {
+        if (!this._cache.glossary) this._cache.glossary = [];
+        this._cache.glossary = this._cache.glossary.filter(g => g.course_id !== payload.id);
+        payload.glossary_terms.forEach(t => {
+          if (t && t.term) {
+            this._cache.glossary.push({
+              id: t.id || ('g-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
+              course_id: payload.id,
+              term: t.term,
+              definition: t.definition || ''
+            });
+          }
+        });
+      }
+    } else if (action === 'DELETE_COURSE') {
+      if (this._cache.courses) this._cache.courses = this._cache.courses.filter(c => c.id !== payload.id);
+      if (this._cache.glossary) this._cache.glossary = this._cache.glossary.filter(g => g.course_id !== payload.id);
+    } else if (action === 'SAVE_GLOSSARY') {
+      if (!this._cache.glossary) this._cache.glossary = [];
+      const idx = this._cache.glossary.findIndex(g => g.id === payload.id);
+      if (idx !== -1) this._cache.glossary[idx] = { ...this._cache.glossary[idx], ...payload };
+      else this._cache.glossary.push(payload);
+    } else if (action === 'DELETE_GLOSSARY') {
+      if (this._cache.glossary) this._cache.glossary = this._cache.glossary.filter(g => g.id !== payload.id);
+    } else if (action === 'TOGGLE_USER_COURSE') {
+      if (!this._cache.user_access_map) this._cache.user_access_map = {};
+      let list = this._cache.user_access_map[payload.user_id] ? [...this._cache.user_access_map[payload.user_id]] : [];
+      if (payload.should_unlock) {
+        if (!list.includes(payload.course_id)) list.push(payload.course_id);
+      } else {
+        list = list.filter(id => id !== payload.course_id);
+      }
+      this._cache.user_access_map[payload.user_id] = list;
+    }
+    this._lastUpdated = Date.now();
+
+    // 2. Persistir en la nube web a través de Cloudflare Pages Function oficial
     try {
       const res = await fetch(PROFITIVO_CLOUD_CONFIG.ENDPOINT, {
         method: 'POST',
@@ -93,6 +165,7 @@ const ProfitivoCloudDB = {
         const json = await res.json();
         if (json.success && json.data) {
           this._cache = json.data;
+          this._lastUpdated = Date.now();
           return json.data;
         }
       }
@@ -100,7 +173,7 @@ const ProfitivoCloudDB = {
       console.warn("Proxy sync falló, usando GitHub API directa:", e);
     }
 
-    // 2. Fallback directo a GitHub Contents API
+    // 3. Fallback directo a GitHub Contents API
     try {
       const getRes = await fetch(PROFITIVO_CLOUD_CONFIG.GITHUB_API, {
         headers: {
@@ -110,7 +183,9 @@ const ProfitivoCloudDB = {
       });
       if (getRes.ok) {
         const getJson = await getRes.json();
-        const contentStr = decodeURIComponent(escape(atob(getJson.content.replace(/\s/g, ''))));
+        const binary = atob(getJson.content.replace(/\s/g, ''));
+        const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+        const contentStr = new TextDecoder('utf-8').decode(bytes);
         let db = JSON.parse(contentStr);
 
         if (action === 'SAVE_COURSE') {
@@ -1203,7 +1278,8 @@ const ProfitivoAPI = {
       video_url: videoUrl,
       is_published: true,
       created_by: courseData.created_by || 'Admin',
-      created_at: courseData.created_at || new Date().toISOString()
+      created_at: courseData.created_at || new Date().toISOString(),
+      glossary_terms: courseData.glossary_terms || []
     };
 
     // 100% Web: guardar y sincronizar en la nube global directamente
