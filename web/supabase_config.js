@@ -60,7 +60,7 @@ const ProfitivoCloudDB = {
       // 1. Intentar por Cloudflare Pages Function
       try {
         const res = await fetch(`${PROFITIVO_CLOUD_CONFIG.ENDPOINT}?_t=${Date.now()}`);
-        if (res.ok) {
+        if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
           const json = await res.json();
           if (json.success && json.data) {
             this._cache = json.data;
@@ -74,7 +74,7 @@ const ProfitivoCloudDB = {
 
       // 2. Fallback a raw GitHub CDN mundial
       const rawRes = await fetch(`${PROFITIVO_CLOUD_CONFIG.RAW_URL}?_t=${Date.now()}`);
-      if (rawRes.ok) {
+      if (rawRes.ok && rawRes.headers.get('content-type')?.includes('application/json')) {
         const data = await rawRes.json();
         this._cache = data;
         this._applyToLocalStorage(data);
@@ -112,7 +112,7 @@ const ProfitivoCloudDB = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, payload })
       });
-      if (res.ok) {
+      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
         const json = await res.json();
         if (json.success && json.data) {
           this._cache = json.data;
