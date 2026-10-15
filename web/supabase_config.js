@@ -581,14 +581,28 @@ function logout() {
 }
 
 // ==============================================================================
-// 4. MÉTODOS DEL NEGOCIO (CON COMPRESIÓN DE IMÁGENES AUTOMÁTICA)
+// 4. MÉTODOS DEL NEGOCIO (CON SANITIZACIÓN Y COMPRESIÓN AUTOMÁTICA)
 // ==============================================================================
+const Sanitizer = (typeof window !== 'undefined' && window.ProfitivoSanitizer) 
+  ? window.ProfitivoSanitizer 
+  : {
+      escapeHtml: s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'),
+      cleanText: (s, max = 2000) => String(s || '').replace(/<[^>]*>/g, '').replace(/on\w+\s*=/gi, '').replace(/javascript\s*:/gi, '').trim().substring(0, max),
+      cleanUsername: s => String(s || '').toLowerCase().replace(/[^a-z0-9_.-]/g, '').substring(0, 30),
+      cleanEmail: s => String(s || '').trim().toLowerCase().substring(0, 100),
+      cleanPhone: s => String(s || '').replace(/[^\d+()\s-]/g, '').trim().substring(0, 25),
+      cleanAmount: s => Math.max(0, parseFloat(s) || 0),
+      cleanUrl: s => /^(https?:\/\/|\/|blob:)/i.test(String(s || '').trim()) ? String(s).trim().replace(/[<>"'`\\]/g, '') : '',
+      sanitizeObject: obj => obj
+    };
+
 const ProfitivoAPI = {
-  // Autenticación & Registro
+  // Autenticación & Registro Sanitizado
   login: async (identifier, password) => {
+    const cleanIdStr = Sanitizer.cleanText(identifier, 100);
     // 1. Intentar autenticación remota en Supabase
     if (isSupabaseConfigured()) {
-      const cleanId = encodeURIComponent(identifier.trim());
+      const cleanId = encodeURIComponent(cleanIdStr);
       const query = `users?or=(username.eq.${cleanId},email.eq.${cleanId})&select=*`;
       const sbUsers = await sbFetch(query);
       if (sbUsers && sbUsers.length > 0) {
@@ -605,7 +619,7 @@ const ProfitivoAPI = {
     // 2. Fallback local si Supabase aún no tiene tablas creadas
     const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
     const user = users.find(u => 
-      (u.username.toLowerCase() === identifier.toLowerCase() || u.email.toLowerCase() === identifier.toLowerCase()) &&
+      (u.username.toLowerCase() === cleanIdStr.toLowerCase() || u.email.toLowerCase() === cleanIdStr.toLowerCase()) &&
       u.password_hash === password
     );
     if (!user) {
@@ -616,9 +630,21 @@ const ProfitivoAPI = {
   },
 
   register: async (userData) => {
+    // Sanitización exhaustiva de campos de registro
+    const cleanFirstName = Sanitizer.cleanText(userData.first_name, 50);
+    const cleanLastName = Sanitizer.cleanText(userData.last_name, 50);
+    const cleanUsername = Sanitizer.cleanUsername(userData.username);
+    const cleanEmail = Sanitizer.cleanEmail(userData.email);
+    const cleanPhone = Sanitizer.cleanPhone(userData.phone_number);
+    const cleanPassword = String(userData.password || '').substring(0, 100);
+
+    if (!cleanFirstName || !cleanLastName || !cleanUsername || !cleanEmail || !cleanPassword) {
+      throw new Error("Todos los campos requeridos deben completarse con datos válidos.");
+    }
+
     // 1. Intentar registro remoto en Supabase
     if (isSupabaseConfigured()) {
-      const checkUser = await sbFetch(`users?or=(username.eq.${encodeURIComponent(userData.username)},email.eq.${encodeURIComponent(userData.email)})&select=id`);
+      const checkUser = await sbFetch(`users?or=(username.eq.${encodeURIComponent(cleanUsername)},email.eq.${encodeURIComponent(cleanEmail)})&select=id`);
       if (checkUser && checkUser.length > 0) {
         throw new Error("Ese nombre de usuario o correo ya está en uso.");
       }
@@ -626,12 +652,12 @@ const ProfitivoAPI = {
       const created = await sbFetch(`users`, {
         method: 'POST',
         body: JSON.stringify({
-          first_name: userData.first_name,
-          last_name: userData.last_name,
-          username: userData.username,
-          email: userData.email,
-          phone_number: userData.phone_number || '',
-          password_hash: userData.password,
+          first_name: cleanFirstName,
+          last_name: cleanLastName,
+          username: cleanUsername,
+          email: cleanEmail,
+          phone_number: cleanPhone,
+          password_hash: cleanPassword,
           role: 'STUDENT',
           is_lifetime_active: false
         })
@@ -682,7 +708,7 @@ const ProfitivoAPI = {
     return newUser;
   },
 
-  // Perfil del Usuario
+  // Perfil del Usuario Sanitizado
   updateProfile: async (userId, updatedFields) => {
     const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
     const index = users.findIndex(u => u.id === userId);
@@ -692,20 +718,20 @@ const ProfitivoAPI = {
       if (updatedFields.current_password !== users[index].password_hash) {
         throw new Error("La contraseña actual no coincide.");
       }
-      users[index].password_hash = updatedFields.new_password;
+      users[index].password_hash = String(updatedFields.new_password).substring(0, 100);
     }
 
-    if (updatedFields.first_name) users[index].first_name = updatedFields.first_name;
-    if (updatedFields.last_name) users[index].last_name = updatedFields.last_name;
-    if (updatedFields.phone_number) users[index].phone_number = updatedFields.phone_number;
-    if (updatedFields.username) users[index].username = updatedFields.username;
+    if (updatedFields.first_name) users[index].first_name = Sanitizer.cleanText(updatedFields.first_name, 50);
+    if (updatedFields.last_name) users[index].last_name = Sanitizer.cleanText(updatedFields.last_name, 50);
+    if (updatedFields.phone_number) users[index].phone_number = Sanitizer.cleanPhone(updatedFields.phone_number);
+    if (updatedFields.username) users[index].username = Sanitizer.cleanUsername(updatedFields.username);
 
     localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
     setSessionUser(users[index]);
     return users[index];
   },
 
-  // Métodos de Pago
+  // Métodos de Pago Sanitizados
   getPaymentMethods: async () => {
     if (isSupabaseConfigured()) {
       const remote = await sbFetch('payment_methods?is_active=eq.true&order=sort_order.asc&select=*');
@@ -717,28 +743,33 @@ const ProfitivoAPI = {
   savePaymentMethod: async (methodData) => {
     const isEdit = !!methodData.id;
     const methodId = methodData.id || ('pm-' + Date.now());
+    const cleanTitle = Sanitizer.cleanText(methodData.title, 80);
+    const cleanType = Sanitizer.cleanText(methodData.method_type, 30);
+    const cleanCurr = Sanitizer.cleanText(methodData.currency, 10);
+    const cleanIdent = Sanitizer.cleanText(methodData.account_identifier, 200);
+    const cleanInstructions = Sanitizer.cleanText(methodData.instructions, 1000);
 
     if (isSupabaseConfigured()) {
       if (isEdit) {
         await sbFetch(`payment_methods?id=eq.${methodId}`, {
           method: 'PATCH',
           body: JSON.stringify({
-            title: methodData.title,
-            method_type: methodData.method_type,
-            currency: methodData.currency,
-            account_identifier: methodData.account_identifier,
-            instructions: methodData.instructions || ''
+            title: cleanTitle,
+            method_type: cleanType,
+            currency: cleanCurr,
+            account_identifier: cleanIdent,
+            instructions: cleanInstructions
           })
         });
       } else {
         await sbFetch('payment_methods', {
           method: 'POST',
           body: JSON.stringify({
-            title: methodData.title,
-            method_type: methodData.method_type,
-            currency: methodData.currency,
-            account_identifier: methodData.account_identifier,
-            instructions: methodData.instructions || '',
+            title: cleanTitle,
+            method_type: cleanType,
+            currency: cleanCurr,
+            account_identifier: cleanIdent,
+            instructions: cleanInstructions,
             is_active: true
           })
         });
@@ -748,12 +779,12 @@ const ProfitivoAPI = {
     const methods = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_METHODS) || '[]');
     const newMethod = {
       id: methodId,
-      title: methodData.title,
-      method_type: methodData.method_type,
-      currency: methodData.currency,
-      account_identifier: methodData.account_identifier,
-      instructions: methodData.instructions || '',
-      qr_image_url: methodData.qr_image_url || 'logo.png',
+      title: cleanTitle,
+      method_type: cleanType,
+      currency: cleanCurr,
+      account_identifier: cleanIdent,
+      instructions: cleanInstructions,
+      qr_image_url: Sanitizer.cleanUrl(methodData.qr_image_url) || 'logo.png',
       is_active: true
     };
 
@@ -779,7 +810,7 @@ const ProfitivoAPI = {
     return true;
   },
 
-  // Reporte de Pago con Compresión WebP de Comprobante
+  // Reporte de Pago Sanitizado con Compresión WebP de Comprobante
   reportPayment: async (reportData, receiptFile) => {
     let receiptUrl = 'logo.png';
 
@@ -793,20 +824,32 @@ const ProfitivoAPI = {
       }
     }
 
+    const cleanUserId = Sanitizer.cleanText(reportData.user_id, 60);
+    const cleanUserName = Sanitizer.cleanText(reportData.user_name, 100);
+    const cleanUserEmail = Sanitizer.cleanEmail(reportData.user_email);
+    const cleanCourseId = reportData.course_id ? Sanitizer.cleanText(reportData.course_id, 60) : null;
+    const cleanCourseTitle = Sanitizer.cleanText(reportData.course_title, 150);
+    const cleanOrderType = Sanitizer.cleanText(reportData.order_type, 40);
+    const cleanAmount = Sanitizer.cleanAmount(reportData.amount);
+    const cleanCurrency = Sanitizer.cleanText(reportData.currency || 'USDT', 10);
+    const cleanMethodTitle = Sanitizer.cleanText(reportData.payment_method_title, 80);
+    const cleanRef = Sanitizer.cleanText(reportData.reference_number, 100);
+    const cleanNotes = Sanitizer.cleanText(reportData.user_notes, 500);
+
     const newOrder = {
       id: 'ord-' + Date.now(),
-      user_id: reportData.user_id,
-      user_name: reportData.user_name,
-      user_email: reportData.user_email,
-      course_id: reportData.course_id || null,
-      course_title: reportData.course_title || 'Membresía Vitalicia',
-      order_type: reportData.order_type, // 'LIFETIME_MEMBERSHIP' o 'COURSE_UNLOCK'
-      amount: reportData.amount,
-      currency: reportData.currency || 'USDT',
-      payment_method_title: reportData.payment_method_title,
-      reference_number: reportData.reference_number,
+      user_id: cleanUserId,
+      user_name: cleanUserName,
+      user_email: cleanUserEmail,
+      course_id: cleanCourseId,
+      course_title: cleanCourseTitle || 'Membresía Vitalicia',
+      order_type: cleanOrderType, // 'LIFETIME_MEMBERSHIP' o 'COURSE_UNLOCK'
+      amount: cleanAmount,
+      currency: cleanCurrency,
+      payment_method_title: cleanMethodTitle,
+      reference_number: cleanRef,
       receipt_file_url: receiptUrl,
-      user_notes: reportData.user_notes || '',
+      user_notes: cleanNotes,
       status: 'PENDING_REVIEW', // En Revisión
       created_at: new Date().toISOString()
     };
@@ -1138,18 +1181,22 @@ const ProfitivoAPI = {
 
   resetUserCredentials: async (userId, newTempPassword, newUsername) => {
     const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
-    const idx = users.findIndex(u => u.id === userId);
+    const cleanUserId = Sanitizer.cleanText(userId, 60);
+    const cleanUsername = newUsername ? Sanitizer.cleanUsername(newUsername) : undefined;
+    const cleanPassword = newTempPassword ? String(newTempPassword).substring(0, 100) : undefined;
+
+    const idx = users.findIndex(u => u.id === cleanUserId);
     if (idx !== -1) {
-      if (newTempPassword) users[idx].password_hash = newTempPassword;
-      if (newUsername) users[idx].username = newUsername;
+      if (cleanPassword) users[idx].password_hash = cleanPassword;
+      if (cleanUsername) users[idx].username = cleanUsername;
       localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
     }
 
     if (isSupabaseConfigured()) {
       const updateData = {};
-      if (newTempPassword) updateData.password_hash = newTempPassword;
-      if (newUsername) updateData.username = newUsername;
-      await sbFetch(`users?id=eq.${userId}`, {
+      if (cleanPassword) updateData.password_hash = cleanPassword;
+      if (cleanUsername) updateData.username = cleanUsername;
+      await sbFetch(`users?id=eq.${cleanUserId}`, {
         method: 'PATCH',
         body: JSON.stringify(updateData)
       });
@@ -1158,13 +1205,15 @@ const ProfitivoAPI = {
     return true;
   },
 
-  // Solicitudes de Recuperación de Cuenta
+  // Solicitudes de Recuperación de Cuenta Sanitizadas
   requestAccountRecovery: async (contact, message) => {
+    const cleanContact = Sanitizer.cleanText(contact, 100);
+    const cleanMessage = Sanitizer.cleanText(message, 1000);
     const recoveries = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_RECOVERIES) || '[]');
     const newReq = {
       id: 'rec-' + Date.now(),
-      contact,
-      message,
+      contact: cleanContact,
+      message: cleanMessage,
       status: 'PENDING',
       created_at: new Date().toISOString()
     };
@@ -1266,20 +1315,31 @@ const ProfitivoAPI = {
       if (existing) videoUrl = existing.video_url;
     }
 
+    const cleanTitle = Sanitizer.cleanText(courseData.title, 150);
+    const cleanCategory = Sanitizer.cleanText(courseData.category, 50);
+    const cleanDescription = Sanitizer.cleanText(courseData.description, 2000);
+    const cleanPrice = Sanitizer.cleanAmount(courseData.price);
+    const cleanVideoUrl = Sanitizer.cleanUrl(videoUrl);
+    const cleanGlossaryTerms = (courseData.glossary_terms || []).map(t => ({
+      id: Sanitizer.cleanText(t.id, 60),
+      term: Sanitizer.cleanText(t.term, 100),
+      definition: Sanitizer.cleanText(t.definition, 1000)
+    }));
+
     const updatedCourse = {
       id: courseId,
-      title: courseData.title,
-      slug: (courseData.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
-      category: courseData.category || 'TRADING',
-      description: courseData.description,
-      price: parseFloat(courseData.price) || 0.00,
+      title: cleanTitle,
+      slug: (cleanTitle || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      category: cleanCategory || 'TRADING',
+      description: cleanDescription,
+      price: cleanPrice,
       is_included_in_lifetime: courseData.is_included_in_lifetime === true || courseData.is_included_in_lifetime === 'true',
-      thumbnail_url: courseData.thumbnail_url || 'logo.png',
-      video_url: videoUrl,
+      thumbnail_url: Sanitizer.cleanUrl(courseData.thumbnail_url) || 'logo.png',
+      video_url: cleanVideoUrl,
       is_published: true,
-      created_by: courseData.created_by || 'Admin',
+      created_by: Sanitizer.cleanText(courseData.created_by, 50) || 'Admin',
       created_at: courseData.created_at || new Date().toISOString(),
-      glossary_terms: courseData.glossary_terms || []
+      glossary_terms: cleanGlossaryTerms
     };
 
     // 100% Web: guardar y sincronizar en la nube global directamente
@@ -1335,11 +1395,15 @@ const ProfitivoAPI = {
   saveGlossaryTerm: async (termData) => {
     const isEdit = !!termData.id;
     const termId = termData.id || ('g-' + Date.now() + '-' + Math.floor(Math.random() * 10000));
+    const cleanTerm = Sanitizer.cleanText(termData.term, 100);
+    const cleanDef = Sanitizer.cleanText(termData.definition, 1000);
+    const cleanCourseId = Sanitizer.cleanText(termData.course_id, 60);
+
     const newTerm = {
       id: termId,
-      course_id: termData.course_id,
-      term: termData.term,
-      definition: termData.definition
+      course_id: cleanCourseId,
+      term: cleanTerm,
+      definition: cleanDef
     };
 
     // 100% Web: guardar directamente en la nube
@@ -1376,7 +1440,7 @@ const ProfitivoAPI = {
     return ProfitivoAPI.saveGlossaryTerm(termData);
   },
 
-  // Gestión de Categorías de Cursos 100% Web
+  // Gestión de Categorías de Cursos 100% Web Sanitizadas
   getCategories: async () => {
     const cloud = await ProfitivoCloudDB.fetchCloud();
     if (cloud && Array.isArray(cloud.categories) && cloud.categories.length > 0) {
@@ -1393,17 +1457,20 @@ const ProfitivoAPI = {
   saveCategory: async (catData) => {
     let cats = await ProfitivoAPI.getCategories();
     let updatedCat = null;
+    const cleanName = Sanitizer.cleanText(catData.name, 60);
+    if (!cleanName) throw new Error("El nombre de la categoría no puede estar vacío.");
+
     if (catData.id) {
-      const idx = cats.findIndex(c => c.id === catData.id);
+      const catId = Sanitizer.cleanText(catData.id, 50);
+      const idx = cats.findIndex(c => c.id === catId);
       if (idx !== -1) {
-        cats[idx].name = catData.name.trim();
+        cats[idx].name = cleanName;
         updatedCat = cats[idx];
       } else {
-        updatedCat = { id: catData.id, name: catData.name.trim() };
+        updatedCat = { id: catId, name: cleanName };
         cats.push(updatedCat);
       }
     } else {
-      const cleanName = catData.name.trim();
       const slug = cleanName
         .toUpperCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")

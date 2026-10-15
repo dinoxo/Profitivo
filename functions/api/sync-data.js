@@ -81,6 +81,34 @@ async function fetchFromGitHub(force = false) {
   return { sha: json.sha, data: parsedData };
 }
 
+function sanitizeServerText(str, maxLen = 2000) {
+  if (str === null || str === undefined) return '';
+  let s = String(str);
+  s = s.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  s = s.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+  s = s.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  s = s.replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '');
+  s = s.replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '');
+  s = s.replace(/<[^>]*>/g, '');
+  s = s.replace(/javascript\s*:/gi, '');
+  s = s.replace(/vbscript\s*:/gi, '');
+  s = s.replace(/data\s*:\s*text\/html/gi, '');
+  s = s.replace(/on\w+\s*=/gi, '');
+  s = s.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  s = s.trim();
+  if (maxLen && s.length > maxLen) s = s.substring(0, maxLen);
+  return s;
+}
+
+function sanitizeServerUrl(url) {
+  if (!url) return '';
+  const s = String(url).trim();
+  if (/^(https?:\/\/|\/|blob:)/i.test(s)) {
+    return s.replace(/[<>"'`\\]/g, '');
+  }
+  return '';
+}
+
 function applyActionToDb(db, action, payload) {
   if (!db.courses) db.courses = [];
   if (!db.glossary) db.glossary = [];
@@ -88,33 +116,52 @@ function applyActionToDb(db, action, payload) {
   if (!db.user_access_map) db.user_access_map = {};
 
   if (action === 'SAVE_COURSE') {
-    const course = payload;
+    const course = {
+      id: sanitizeServerText(payload.id, 60),
+      title: sanitizeServerText(payload.title, 150),
+      slug: sanitizeServerText(payload.slug, 150),
+      category: sanitizeServerText(payload.category, 50),
+      description: sanitizeServerText(payload.description, 2000),
+      price: Math.max(0, parseFloat(payload.price) || 0),
+      is_included_in_lifetime: payload.is_included_in_lifetime === true || payload.is_included_in_lifetime === 'true',
+      thumbnail_url: sanitizeServerUrl(payload.thumbnail_url) || 'logo.png',
+      video_url: sanitizeServerUrl(payload.video_url),
+      is_published: true,
+      created_by: sanitizeServerText(payload.created_by, 50) || 'Admin',
+      created_at: payload.created_at || new Date().toISOString()
+    };
+
     const idx = db.courses.findIndex(c => c.id === course.id);
     if (idx !== -1) {
       db.courses[idx] = { ...db.courses[idx], ...course };
     } else {
       db.courses.push(course);
     }
-    // Sincronización atómica de glosario si viene en el curso
-    if (Array.isArray(course.glossary_terms)) {
+    // Sincronización atómica y sanitizada de glosario si viene en el curso
+    if (Array.isArray(payload.glossary_terms)) {
       db.glossary = db.glossary.filter(g => g.course_id !== course.id);
-      course.glossary_terms.forEach(t => {
+      payload.glossary_terms.forEach(t => {
         if (t && t.term) {
           db.glossary.push({
-            id: t.id || ('g-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
+            id: sanitizeServerText(t.id, 60) || ('g-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
             course_id: course.id,
-            term: t.term,
-            definition: t.definition || ''
+            term: sanitizeServerText(t.term, 100),
+            definition: sanitizeServerText(t.definition, 1000)
           });
         }
       });
     }
   } else if (action === 'DELETE_COURSE') {
-    const courseId = payload.id;
+    const courseId = sanitizeServerText(payload.id, 60);
     db.courses = db.courses.filter(c => c.id !== courseId);
     db.glossary = db.glossary.filter(g => g.course_id !== courseId);
   } else if (action === 'SAVE_GLOSSARY') {
-    const term = payload;
+    const term = {
+      id: sanitizeServerText(payload.id, 60),
+      course_id: sanitizeServerText(payload.course_id, 60),
+      term: sanitizeServerText(payload.term, 100),
+      definition: sanitizeServerText(payload.definition, 1000)
+    };
     const idx = db.glossary.findIndex(g => g.id === term.id);
     if (idx !== -1) {
       db.glossary[idx] = { ...db.glossary[idx], ...term };
@@ -122,16 +169,28 @@ function applyActionToDb(db, action, payload) {
       db.glossary.push(term);
     }
   } else if (action === 'SAVE_GLOSSARY_BATCH') {
-    const { course_id, terms } = payload;
+    const course_id = sanitizeServerText(payload.course_id, 60);
     db.glossary = db.glossary.filter(g => g.course_id !== course_id);
-    if (Array.isArray(terms)) {
-      db.glossary.push(...terms);
+    if (Array.isArray(payload.terms)) {
+      payload.terms.forEach(t => {
+        if (t && t.term) {
+          db.glossary.push({
+            id: sanitizeServerText(t.id, 60) || ('g-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
+            course_id: course_id,
+            term: sanitizeServerText(t.term, 100),
+            definition: sanitizeServerText(t.definition, 1000)
+          });
+        }
+      });
     }
   } else if (action === 'DELETE_GLOSSARY') {
-    const termId = payload.id;
+    const termId = sanitizeServerText(payload.id, 60);
     db.glossary = db.glossary.filter(g => g.id !== termId);
   } else if (action === 'SAVE_CATEGORY') {
-    const cat = payload;
+    const cat = {
+      id: sanitizeServerText(payload.id, 50),
+      name: sanitizeServerText(payload.name, 60)
+    };
     const idx = db.categories.findIndex(c => c.id === cat.id);
     if (idx !== -1) {
       db.categories[idx] = { ...db.categories[idx], ...cat };
@@ -139,10 +198,12 @@ function applyActionToDb(db, action, payload) {
       db.categories.push(cat);
     }
   } else if (action === 'DELETE_CATEGORY') {
-    const catId = payload.id;
+    const catId = sanitizeServerText(payload.id, 50);
     db.categories = db.categories.filter(c => c.id !== catId);
   } else if (action === 'TOGGLE_USER_COURSE') {
-    const { user_id, course_id, should_unlock } = payload;
+    const user_id = sanitizeServerText(payload.user_id, 60);
+    const course_id = sanitizeServerText(payload.course_id, 60);
+    const should_unlock = payload.should_unlock === true || payload.should_unlock === 'true';
     let list = db.user_access_map[user_id] ? [...db.user_access_map[user_id]] : [];
     if (should_unlock) {
       if (!list.includes(course_id)) list.push(course_id);
