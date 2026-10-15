@@ -1111,6 +1111,54 @@ const ProfitivoAPI = {
 
   addGlossaryTerm: async (termData) => {
     return ProfitivoAPI.saveGlossaryTerm(termData);
+  },
+
+  // Gestión de Categorías de Cursos
+  getCategories: async () => {
+    const key = 'profitivo_course_categories';
+    let cats = JSON.parse(localStorage.getItem(key) || 'null');
+    if (!cats || !Array.isArray(cats) || cats.length === 0) {
+      cats = [
+        { id: 'TRADING', name: 'Trading & Finanzas' },
+        { id: 'CRYPTO', name: 'Criptomonedas & Web3' },
+        { id: 'TECH_UX', name: 'Tecnología UX/UI' },
+        { id: 'PSYCHOLOGY', name: 'Psicología de Mercado' }
+      ];
+      localStorage.setItem(key, JSON.stringify(cats));
+    }
+    return cats;
+  },
+
+  saveCategory: async (catData) => {
+    const key = 'profitivo_course_categories';
+    let cats = await ProfitivoAPI.getCategories();
+    if (catData.id) {
+      const idx = cats.findIndex(c => c.id === catData.id);
+      if (idx !== -1) {
+        cats[idx].name = catData.name.trim();
+      } else {
+        cats.push({ id: catData.id, name: catData.name.trim() });
+      }
+    } else {
+      const cleanName = catData.name.trim();
+      const slug = cleanName
+        .toUpperCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Z0-9]/g, '_')
+        .substring(0, 20);
+      const newId = slug && !cats.some(c => c.id === slug) ? slug : ('CAT_' + Date.now());
+      cats.push({ id: newId, name: cleanName });
+    }
+    localStorage.setItem(key, JSON.stringify(cats));
+    return cats;
+  },
+
+  deleteCategory: async (catId) => {
+    const key = 'profitivo_course_categories';
+    let cats = await ProfitivoAPI.getCategories();
+    cats = cats.filter(c => c.id !== catId);
+    localStorage.setItem(key, JSON.stringify(cats));
+    return cats;
   }
 };
 

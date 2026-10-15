@@ -176,7 +176,10 @@
             Agrega nuevas formaciones y define palabras técnicas para enriquecer el aprendizaje.
           </p>
         </div>
-        <div style="display: flex; gap: 10px;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-outline" onclick="openCategoriesModal()" style="border-color: var(--gold-prestige); color: var(--gold-prestige);" title="Ver, editar o crear categorías de cursos">
+            🏷️ Categorías de Cursos
+          </button>
           <button class="btn btn-outline" onclick="openAddGlossaryModal()">+ Agregar Término Glosario</button>
           <button class="btn btn-primary" onclick="openAddCourseModal()">+ Nuevo Curso</button>
         </div>
@@ -447,6 +450,46 @@
   </div>
 
   <!-- ============================================================================== -->
+  <!-- MODAL: GESTIÓN DE CATEGORÍAS DE CURSOS -->
+  <!-- ============================================================================== -->
+  <div class="modal-overlay" id="modal-categories" style="z-index: 2050 !important;" onclick="if(event.target === this) closeModal('modal-categories')">
+    <div class="modal-content" style="max-width: 620px; box-shadow: 0 25px 75px rgba(0, 0, 0, 0.95); border: 1px solid var(--border-gold);" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h3 style="font-size: 1.35rem; color: var(--gold-prestige); display: flex; align-items: center; gap: 8px;">
+            🏷️ Categorías de Cursos
+          </h3>
+          <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 2px;">
+            Crea nuevas categorías, edita sus nombres o elimínalas. Aparecerán de inmediato al publicar o editar cursos.
+          </p>
+        </div>
+        <button onclick="closeModal('modal-categories')" style="background: none; border: none; color: var(--text-muted); font-size: 1.6rem; cursor: pointer;">&times;</button>
+      </div>
+
+      <!-- Formulario para agregar nueva categoría -->
+      <form id="form-add-category" onsubmit="handleCreateCategory(event)" style="background: #060B14; border: 1px solid var(--border-subtle); padding: 14px; border-radius: 10px; margin-bottom: 20px;">
+        <label class="form-label" style="font-size: 0.85rem; color: #fff; margin-bottom: 6px;">➕ Crear Nueva Categoría:</label>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="new-category-name" class="form-input" placeholder="ej. Inteligencia Artificial, Forex, Arbitraje..." required style="flex: 1;">
+          <button type="submit" class="btn btn-primary" style="white-space: nowrap; padding: 0 16px;">
+            ➕ Agregar
+          </button>
+        </div>
+      </form>
+
+      <!-- Lista de Categorías Existentes -->
+      <h4 style="font-size: 0.95rem; margin-bottom: 10px; color: #CBD5E1;">Categorías Actuales Disponibles:</h4>
+      <div id="list-admin-categories" style="display: flex; flex-direction: column; gap: 10px; max-height: 280px; overflow-y: auto; padding-right: 4px;">
+        <!-- Se llena dinámicamente con JS -->
+      </div>
+
+      <div style="margin-top: 20px; text-align: right; border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+        <button class="btn btn-outline" onclick="closeModal('modal-categories')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================================== -->
   <!-- MODAL: AGREGAR / EDITAR CURSO -->
   <!-- ============================================================================== -->
   <div class="modal-overlay" id="modal-add-course">
@@ -469,12 +512,14 @@
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
           <div class="form-group">
-            <label class="form-label">Categoría:</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label class="form-label" style="margin-bottom: 0;">Categoría:</label>
+              <button type="button" onclick="openCategoriesModal()" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.7rem; border-color: var(--gold-prestige); color: var(--gold-prestige);" title="Crear o editar categorías">
+                ⚙️ Categorías
+              </button>
+            </div>
             <select id="course-category" class="form-select">
-              <option value="TRADING">Trading & Finanzas</option>
-              <option value="CRYPTO">Criptomonedas & Web3</option>
-              <option value="TECH_UX">Tecnología UX/UI</option>
-              <option value="PSYCHOLOGY">Psicología de Mercado</option>
+              <!-- Cargado dinámicamente con JS -->
             </select>
           </div>
           <div class="form-group">
@@ -554,6 +599,7 @@
     let allMethodsCache = [];
     let allGlossaryCache = [];
     let allOrdersCache = [];
+    let allCategoriesCache = [];
 
     function showToast(text, isError = false) {
       const toast = document.getElementById('toast-msg');
@@ -597,6 +643,7 @@
         badge.textContent = `🛡️ Administrador: @${currentAdmin.username}`;
       }
 
+      await loadCategoriesIntoSelect();
       allCoursesCache = await window.ProfitivoAPI.getCourses();
       await updateDashboardMetrics();
       loadPendingOrders();
@@ -1047,7 +1094,12 @@
             <h4 style="font-size: 1.1rem; margin-bottom: 6px;">${c.title}</h4>
             <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 12px; min-height: 38px;">${c.description}</p>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; border-top: 1px solid var(--border-subtle); padding-top: 10px;">
-              <div style="font-size: 0.8rem; color: var(--green-neon);">● Video activo</div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 0.78rem; color: var(--green-neon);">● Video</span>
+                <span class="badge badge-gold" style="font-size: 0.7rem; padding: 2px 7px;">
+                  🏷️ ${getCategoryName(c.category)}
+                </span>
+              </div>
               <a href="portal.html?course=${c.id}" target="_blank" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.75rem; text-decoration: none;">
                 ▶ Ver Clase ↗
               </a>
@@ -1141,13 +1193,129 @@
       return list;
     }
 
-    function openAddCourseModal() {
+    // -------------------------------------------------------------
+    // GESTIÓN DINÁMICA DE CATEGORÍAS DE CURSOS
+    // -------------------------------------------------------------
+    async function loadCategoriesIntoSelect(selectedIdOrName = null) {
+      try {
+        allCategoriesCache = await window.ProfitivoAPI.getCategories();
+        const select = document.getElementById('course-category');
+        if (!select) return;
+
+        const currentVal = selectedIdOrName !== null ? selectedIdOrName : select.value;
+        select.innerHTML = allCategoriesCache.map(cat => `
+          <option value="${cat.id}">${escapeHtmlAttr(cat.name)}</option>
+        `).join('');
+
+        if (currentVal) {
+          const matched = allCategoriesCache.find(c => c.id === currentVal || c.name === currentVal);
+          if (matched) {
+            select.value = matched.id;
+          }
+        }
+      } catch (err) {
+        console.error("Error cargando categorías:", err);
+      }
+    }
+
+    function getCategoryName(catIdOrName) {
+      if (!catIdOrName) return 'General';
+      const found = allCategoriesCache.find(c => c.id === catIdOrName || c.name === catIdOrName);
+      return found ? found.name : catIdOrName;
+    }
+
+    async function openCategoriesModal() {
+      await renderCategoriesList();
+      document.getElementById('modal-categories').classList.add('active');
+    }
+
+    async function renderCategoriesList() {
+      allCategoriesCache = await window.ProfitivoAPI.getCategories();
+      const container = document.getElementById('list-admin-categories');
+      if (!container) return;
+
+      if (allCategoriesCache.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 20px;">No hay categorías creadas. Escribe una arriba para comenzar.</p>`;
+        return;
+      }
+
+      container.innerHTML = allCategoriesCache.map(cat => `
+        <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 10px 14px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+          <input type="text" id="cat-name-${cat.id}" class="form-input" value="${escapeHtmlAttr(cat.name)}" style="flex: 1; padding: 7px 10px; font-size: 0.88rem;">
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn btn-outline" onclick="handleUpdateCategory('${cat.id}')" style="padding: 6px 12px; font-size: 0.78rem;" title="Guardar cambios de esta categoría">
+              💾 Guardar
+            </button>
+            <button type="button" class="btn btn-danger" onclick="handleDeleteCategory('${cat.id}')" style="padding: 6px 10px; font-size: 0.78rem;" title="Eliminar categoría">
+              🗑️
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function handleCreateCategory(e) {
+      e.preventDefault();
+      const input = document.getElementById('new-category-name');
+      const name = input.value.trim();
+      if (!name) return;
+
+      try {
+        await window.ProfitivoAPI.saveCategory({ name });
+        input.value = '';
+        showToast("¡Categoría creada con éxito!");
+        await renderCategoriesList();
+        await loadCategoriesIntoSelect();
+        loadAdminCourses();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function handleUpdateCategory(catId) {
+      const input = document.getElementById(`cat-name-${catId}`);
+      if (!input) return;
+      const newName = input.value.trim();
+      if (!newName) {
+        showToast("El nombre de la categoría no puede estar vacío.", true);
+        return;
+      }
+
+      try {
+        await window.ProfitivoAPI.saveCategory({ id: catId, name: newName });
+        showToast("¡Categoría actualizada con éxito!");
+        await renderCategoriesList();
+        await loadCategoriesIntoSelect();
+        loadAdminCourses();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function handleDeleteCategory(catId) {
+      const cat = allCategoriesCache.find(c => c.id === catId);
+      const name = cat ? cat.name : 'esta categoría';
+      if (!confirm(`¿Estás seguro de eliminar la categoría "${name}"?`)) return;
+
+      try {
+        await window.ProfitivoAPI.deleteCategory(catId);
+        showToast("Categoría eliminada.");
+        await renderCategoriesList();
+        await loadCategoriesIntoSelect();
+        loadAdminCourses();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function openAddCourseModal() {
       document.getElementById('form-add-course').reset();
       document.getElementById('course-id').value = '';
       document.getElementById('group-course-price').style.display = 'none';
       document.getElementById('course-upload-status').style.display = 'none';
       document.getElementById('modal-course-title').textContent = "📹 Publicar Nuevo Curso / Lección";
       document.getElementById('btn-save-course').textContent = "🚀 Publicar Curso en Profitivo";
+      await loadCategoriesIntoSelect();
       resetCourseGlossaryRows();
       document.getElementById('modal-add-course').classList.add('active');
     }
@@ -1158,7 +1326,7 @@
       document.getElementById('form-add-course').reset();
       document.getElementById('course-id').value = c.id;
       document.getElementById('course-title').value = c.title || '';
-      document.getElementById('course-category').value = c.category || 'TRADING';
+      await loadCategoriesIntoSelect(c.category || 'TRADING');
       document.getElementById('course-access-type').value = c.is_included_in_lifetime ? 'LIFETIME' : 'SPECIALIZED';
       toggleCoursePriceInput(c.is_included_in_lifetime ? 'LIFETIME' : 'SPECIALIZED');
       document.getElementById('course-price').value = c.price || 0;
