@@ -1055,7 +1055,7 @@ const ProfitivoAPI = {
 
   saveGlossaryTerm: async (termData) => {
     const isEdit = !!termData.id;
-    const termId = termData.id || ('g-' + Date.now());
+    const termId = termData.id || ('g-' + Date.now() + '-' + Math.floor(Math.random() * 10000));
 
     if (isSupabaseConfigured()) {
       if (isEdit) {

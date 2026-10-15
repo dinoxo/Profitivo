@@ -513,13 +513,24 @@
           <div id="course-upload-status" style="margin-top: 8px; font-size: 0.82rem; color: var(--gold-prestige); display: none;">⏳ Procesando y subiendo video...</div>
         </div>
 
-        <!-- Glosario Inicial Opcional -->
-        <div style="background: #0B1322; border: 1px solid var(--border-subtle); padding: 14px; border-radius: 10px; margin-bottom: 18px;">
-          <h4 style="font-size: 0.9rem; color: #fff; margin-bottom: 8px;">📖 Término Clave de Glosario para este Curso (Opcional):</h4>
-          <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px;">
-            <input type="text" id="course-glossary-term" class="form-input" placeholder="Término (ej: Stop Loss)">
-            <input type="text" id="course-glossary-def" class="form-input" placeholder="Definición directa...">
+        <!-- Glosario de Conceptos para este Curso (Múltiples Términos con + y -) -->
+        <div style="background: #0B1322; border: 1px solid var(--border-subtle); padding: 16px; border-radius: 10px; margin-bottom: 18px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <h4 style="font-size: 0.92rem; color: #fff; margin: 0; display: flex; align-items: center; gap: 6px;">
+              📖 Términos de Glosario para este Curso (Opcional):
+            </h4>
+            <button type="button" class="btn btn-primary" onclick="addCourseGlossaryRow()" style="padding: 4px 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; font-weight: 700;" title="Agregar otro término (+)">
+              ➕ Agregar (+)
+            </button>
           </div>
+
+          <div id="course-glossary-container" style="display: flex; flex-direction: column; gap: 10px; max-height: 240px; overflow-y: auto; padding-right: 4px;">
+            <!-- Filas dinámicas generadas con JS -->
+          </div>
+
+          <button type="button" class="btn btn-outline" onclick="addCourseGlossaryRow()" style="margin-top: 10px; padding: 7px 12px; font-size: 0.82rem; width: 100%; border-style: dashed; display: flex; align-items: center; justify-content: center; gap: 6px; border-color: var(--green-neon); color: var(--green-neon);">
+            ➕ Agregar otro término (+)
+          </button>
         </div>
 
         <button type="submit" id="btn-save-course" class="btn btn-primary" style="width: 100%; padding: 12px;">
@@ -1048,6 +1059,88 @@
       select.innerHTML = allCoursesCache.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
     }
 
+    let removedCourseGlossaryIds = [];
+
+    function escapeHtmlAttr(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function addCourseGlossaryRow(term = '', def = '', id = '') {
+      const container = document.getElementById('course-glossary-container');
+      if (!container) return;
+      const row = document.createElement('div');
+      row.className = 'course-glossary-row';
+      row.dataset.glossaryId = id || '';
+      row.style.cssText = 'display: grid; grid-template-columns: 1fr 2fr 42px; gap: 8px; align-items: center;';
+      row.innerHTML = `
+        <input type="text" class="form-input glossary-term-input" placeholder="Término (ej: Binance)" value="${escapeHtmlAttr(term)}">
+        <input type="text" class="form-input glossary-def-input" placeholder="Definición directa..." value="${escapeHtmlAttr(def)}">
+        <button type="button" class="btn btn-danger" onclick="removeCourseGlossaryRow(this)" style="padding: 0; height: 38px; width: 42px; display: flex; align-items: center; justify-content: center; font-size: 1rem; border-radius: 6px;" title="Eliminar este término (-)">
+          ➖
+        </button>
+      `;
+      container.appendChild(row);
+      if (!term) {
+        const input = row.querySelector('.glossary-term-input');
+        if (input) input.focus();
+      }
+    }
+
+    function removeCourseGlossaryRow(btn) {
+      const container = document.getElementById('course-glossary-container');
+      const row = btn.closest('.course-glossary-row');
+      if (!row) return;
+
+      const existingId = row.dataset.glossaryId;
+      if (existingId) {
+        removedCourseGlossaryIds.push(existingId);
+      }
+
+      const allRows = container.querySelectorAll('.course-glossary-row');
+      if (allRows.length > 1) {
+        row.remove();
+      } else {
+        row.dataset.glossaryId = '';
+        row.querySelector('.glossary-term-input').value = '';
+        row.querySelector('.glossary-def-input').value = '';
+      }
+    }
+
+    function resetCourseGlossaryRows(existingTerms = []) {
+      const container = document.getElementById('course-glossary-container');
+      if (!container) return;
+      container.innerHTML = '';
+      removedCourseGlossaryIds = [];
+
+      if (existingTerms && existingTerms.length > 0) {
+        existingTerms.forEach(t => addCourseGlossaryRow(t.term, t.definition, t.id));
+      } else {
+        addCourseGlossaryRow();
+      }
+    }
+
+    function getCourseGlossaryValues() {
+      const container = document.getElementById('course-glossary-container');
+      if (!container) return [];
+      const rows = container.querySelectorAll('.course-glossary-row');
+      const list = [];
+      rows.forEach(r => {
+        const term = (r.querySelector('.glossary-term-input').value || '').trim();
+        const def = (r.querySelector('.glossary-def-input').value || '').trim();
+        const id = r.dataset.glossaryId || null;
+        if (term && def) {
+          list.push({ id, term, definition: def });
+        }
+      });
+      return list;
+    }
+
     function openAddCourseModal() {
       document.getElementById('form-add-course').reset();
       document.getElementById('course-id').value = '';
@@ -1055,10 +1148,11 @@
       document.getElementById('course-upload-status').style.display = 'none';
       document.getElementById('modal-course-title').textContent = "📹 Publicar Nuevo Curso / Lección";
       document.getElementById('btn-save-course').textContent = "🚀 Publicar Curso en Profitivo";
+      resetCourseGlossaryRows();
       document.getElementById('modal-add-course').classList.add('active');
     }
 
-    function openEditCourseModal(id) {
+    async function openEditCourseModal(id) {
       const c = allCoursesCache.find(x => x.id === id);
       if (!c) return;
       document.getElementById('form-add-course').reset();
@@ -1073,6 +1167,10 @@
       document.getElementById('course-upload-status').style.display = 'none';
       document.getElementById('modal-course-title').textContent = "✏️ Editar Curso / Lección";
       document.getElementById('btn-save-course').textContent = "💾 Guardar Cambios del Curso";
+
+      const existingGlossary = await window.ProfitivoAPI.getCourseGlossary(c.id);
+      resetCourseGlossaryRows(existingGlossary);
+
       document.getElementById('modal-add-course').classList.add('active');
     }
 
@@ -1114,15 +1212,28 @@
       try {
         const savedCourse = await window.ProfitivoAPI.saveCourse(courseData, videoFile);
 
-        // Si se agregó un término de glosario inicial
-        const term = document.getElementById('course-glossary-term').value.trim();
-        const def = document.getElementById('course-glossary-def').value.trim();
-        if (term && def) {
-          await window.ProfitivoAPI.addGlossaryTerm({
-            course_id: savedCourse.id,
-            term: term,
-            definition: def
-          });
+        // 1. Eliminar términos de glosario quitados con el botón '-'
+        for (const remId of removedCourseGlossaryIds) {
+          try {
+            await window.ProfitivoAPI.deleteGlossaryTerm(remId);
+          } catch (err) {
+            console.warn("Error eliminando término:", err);
+          }
+        }
+
+        // 2. Guardar todos los términos de glosario ingresados (múltiples)
+        const glossaryList = getCourseGlossaryValues();
+        for (const item of glossaryList) {
+          try {
+            await window.ProfitivoAPI.saveGlossaryTerm({
+              id: item.id || undefined,
+              course_id: savedCourse.id,
+              term: item.term,
+              definition: item.definition
+            });
+          } catch (err) {
+            console.warn("Error guardando término:", err);
+          }
         }
 
         allCoursesCache = await window.ProfitivoAPI.getCourses();
