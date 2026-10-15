@@ -151,6 +151,43 @@ const ProfitivoCloudDB = {
         list = list.filter(id => id !== payload.course_id);
       }
       this._cache.user_access_map[payload.user_id] = list;
+    } else if (action === 'SAVE_SETTINGS') {
+      if (!this._cache.settings) this._cache.settings = {};
+      if (payload.membership_price !== undefined) {
+        this._cache.settings.membership_price = Math.max(0, parseFloat(payload.membership_price) || 0);
+      }
+      if (payload.currency) this._cache.settings.currency = payload.currency;
+      this._cache.settings.updated_at = new Date().toISOString();
+    } else if (action === 'UPDATE_COURSE_PRICE') {
+      if (this._cache.courses) {
+        const idx = this._cache.courses.findIndex(c => c.id === payload.id);
+        if (idx !== -1) {
+          if (payload.price !== undefined) this._cache.courses[idx].price = Math.max(0, parseFloat(payload.price) || 0);
+          if (payload.is_included_in_lifetime !== undefined) {
+            this._cache.courses[idx].is_included_in_lifetime = payload.is_included_in_lifetime === true || payload.is_included_in_lifetime === 'true';
+          }
+        }
+      }
+    } else if (action === 'BATCH_UPDATE_PRICES') {
+      if (payload.settings) {
+        if (!this._cache.settings) this._cache.settings = {};
+        if (payload.settings.membership_price !== undefined) {
+          this._cache.settings.membership_price = Math.max(0, parseFloat(payload.settings.membership_price) || 0);
+        }
+        if (payload.settings.currency) this._cache.settings.currency = payload.settings.currency;
+        this._cache.settings.updated_at = new Date().toISOString();
+      }
+      if (Array.isArray(payload.courses) && this._cache.courses) {
+        payload.courses.forEach(cp => {
+          const idx = this._cache.courses.findIndex(c => c.id === cp.id);
+          if (idx !== -1) {
+            if (cp.price !== undefined) this._cache.courses[idx].price = Math.max(0, parseFloat(cp.price) || 0);
+            if (cp.is_included_in_lifetime !== undefined) {
+              this._cache.courses[idx].is_included_in_lifetime = cp.is_included_in_lifetime === true || cp.is_included_in_lifetime === 'true';
+            }
+          }
+        });
+      }
     }
     this._lastUpdated = Date.now();
 
@@ -253,6 +290,41 @@ const ProfitivoCloudDB = {
               });
             }
           }
+        } else if (action === 'SAVE_SETTINGS') {
+          if (!db.settings) db.settings = {};
+          if (payload.membership_price !== undefined) {
+            db.settings.membership_price = Math.max(0, parseFloat(payload.membership_price) || 0);
+          }
+          if (payload.currency) db.settings.currency = payload.currency;
+        } else if (action === 'UPDATE_COURSE_PRICE') {
+          if (db.courses) {
+            const idx = db.courses.findIndex(c => c.id === payload.id);
+            if (idx !== -1) {
+              if (payload.price !== undefined) db.courses[idx].price = Math.max(0, parseFloat(payload.price) || 0);
+              if (payload.is_included_in_lifetime !== undefined) {
+                db.courses[idx].is_included_in_lifetime = payload.is_included_in_lifetime === true || payload.is_included_in_lifetime === 'true';
+              }
+            }
+          }
+        } else if (action === 'BATCH_UPDATE_PRICES') {
+          if (payload.settings) {
+            if (!db.settings) db.settings = {};
+            if (payload.settings.membership_price !== undefined) {
+              db.settings.membership_price = Math.max(0, parseFloat(payload.settings.membership_price) || 0);
+            }
+            if (payload.settings.currency) db.settings.currency = payload.settings.currency;
+          }
+          if (Array.isArray(payload.courses) && db.courses) {
+            payload.courses.forEach(cp => {
+              const idx = db.courses.findIndex(c => c.id === cp.id);
+              if (idx !== -1) {
+                if (cp.price !== undefined) db.courses[idx].price = Math.max(0, parseFloat(cp.price) || 0);
+                if (cp.is_included_in_lifetime !== undefined) {
+                  db.courses[idx].is_included_in_lifetime = cp.is_included_in_lifetime === true || cp.is_included_in_lifetime === 'true';
+                }
+              }
+            });
+          }
         }
 
         db.updated_at = new Date().toISOString();
@@ -316,6 +388,14 @@ const ProfitivoCloudDB = {
     }
     const cloud = await this.fetchCloud();
     return (cloud && cloud.user_access_map) ? cloud.user_access_map : {};
+  },
+
+  getSettings: async function() {
+    if (this._cache && this._cache.settings) {
+      return this._cache.settings;
+    }
+    const cloud = await this.fetchCloud();
+    return (cloud && cloud.settings) ? cloud.settings : { membership_price: 50.00, currency: 'USDT' };
   }
 };
 
@@ -1237,13 +1317,37 @@ const ProfitivoAPI = {
 
   // Cursos 100% Web (Sin guardar nada en el computador local)
   getCourses: async () => {
+    let coursesList = [];
     if (isSupabaseConfigured()) {
-      const remote = await sbFetch('courses?is_published=eq.true&order=sort_order.asc&select=*');
-      if (remote && remote.length > 0) return remote;
+      try {
+        const remote = await sbFetch('courses?is_published=eq.true&order=sort_order.asc&select=*');
+        if (remote && Array.isArray(remote) && remote.length > 0) coursesList = remote;
+      } catch (e) {
+        console.warn("Supabase getCourses fallback:", e);
+      }
     }
 
-    const cloud = await ProfitivoCloudDB.fetchCloud();
-    return (cloud && Array.isArray(cloud.courses)) ? cloud.courses : [];
+    if (!coursesList || coursesList.length === 0) {
+      const cloud = await ProfitivoCloudDB.fetchCloud();
+      coursesList = (cloud && Array.isArray(cloud.courses)) ? cloud.courses : [];
+    }
+
+    return (coursesList || []).map(c => {
+      const priceNum = Math.max(0, parseFloat(c.price) || 0);
+      let isIncluded = false;
+      if (c.is_included_in_lifetime === true || c.is_included_in_lifetime === 'true') {
+        isIncluded = true;
+      } else if (c.is_included_in_lifetime === false || c.is_included_in_lifetime === 'false') {
+        isIncluded = false;
+      } else {
+        isIncluded = (priceNum === 0);
+      }
+      return {
+        ...c,
+        price: priceNum,
+        is_included_in_lifetime: isIncluded
+      };
+    });
   },
 
   // Subida de Videos a GitHub CDN Oficial de la Empresa (puneta29/profitivo-videos)
@@ -1491,6 +1595,55 @@ const ProfitivoAPI = {
     // 100% Web: eliminar directamente en la nube
     await ProfitivoCloudDB.dispatch('DELETE_CATEGORY', { id: catId });
     return cats;
+  },
+
+  // Gestión de Precios de Membresía y Cursos 100% Web
+  getPlatformSettings: async () => {
+    return await ProfitivoCloudDB.getSettings();
+  },
+
+  savePlatformSettings: async (settingsData) => {
+    const cleanPrice = Sanitizer.cleanAmount(settingsData.membership_price);
+    const cleanCurrency = Sanitizer.cleanText(settingsData.currency || 'USDT', 10);
+    const payload = {
+      membership_price: cleanPrice,
+      currency: cleanCurrency
+    };
+    await ProfitivoCloudDB.dispatch('SAVE_SETTINGS', payload);
+    return payload;
+  },
+
+  updateCoursePrice: async (courseId, price, isLifetime) => {
+    const cleanId = Sanitizer.cleanText(courseId, 60);
+    const cleanPrice = Sanitizer.cleanAmount(price);
+    const isIncluded = isLifetime === true || isLifetime === 'true';
+    const payload = {
+      id: cleanId,
+      price: cleanPrice,
+      is_included_in_lifetime: isIncluded
+    };
+    await ProfitivoCloudDB.dispatch('UPDATE_COURSE_PRICE', payload);
+    return payload;
+  },
+
+  batchUpdatePrices: async (settingsData, coursesPricingList) => {
+    const cleanSettings = settingsData ? {
+      membership_price: Sanitizer.cleanAmount(settingsData.membership_price),
+      currency: Sanitizer.cleanText(settingsData.currency || 'USDT', 10)
+    } : null;
+
+    const cleanCourses = Array.isArray(coursesPricingList) ? coursesPricingList.map(cp => ({
+      id: Sanitizer.cleanText(cp.id, 60),
+      price: Sanitizer.cleanAmount(cp.price),
+      is_included_in_lifetime: cp.is_included_in_lifetime === true || cp.is_included_in_lifetime === 'true'
+    })) : [];
+
+    const payload = {
+      settings: cleanSettings,
+      courses: cleanCourses
+    };
+    await ProfitivoCloudDB.dispatch('BATCH_UPDATE_PRICES', payload);
+    return payload;
   }
 };
 

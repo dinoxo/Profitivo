@@ -114,6 +114,7 @@ function applyActionToDb(db, action, payload) {
   if (!db.glossary) db.glossary = [];
   if (!db.categories) db.categories = [];
   if (!db.user_access_map) db.user_access_map = {};
+  if (!db.settings) db.settings = { membership_price: 50.00, currency: 'USDT' };
 
   if (action === 'SAVE_COURSE') {
     const course = {
@@ -244,6 +245,51 @@ function applyActionToDb(db, action, payload) {
         });
       }
     }
+  } else if (action === 'SAVE_SETTINGS') {
+    if (!db.settings) db.settings = {};
+    if (payload.membership_price !== undefined) {
+      db.settings.membership_price = Math.max(0, parseFloat(payload.membership_price) || 0);
+    }
+    if (payload.currency) {
+      db.settings.currency = sanitizeServerText(payload.currency, 10) || 'USDT';
+    }
+    db.settings.updated_at = new Date().toISOString();
+  } else if (action === 'UPDATE_COURSE_PRICE') {
+    const courseId = sanitizeServerText(payload.id, 60);
+    const idx = db.courses.findIndex(c => c.id === courseId);
+    if (idx !== -1) {
+      if (payload.price !== undefined) {
+        db.courses[idx].price = Math.max(0, parseFloat(payload.price) || 0);
+      }
+      if (payload.is_included_in_lifetime !== undefined) {
+        db.courses[idx].is_included_in_lifetime = payload.is_included_in_lifetime === true || payload.is_included_in_lifetime === 'true';
+      }
+    }
+  } else if (action === 'BATCH_UPDATE_PRICES') {
+    if (payload.settings) {
+      if (!db.settings) db.settings = {};
+      if (payload.settings.membership_price !== undefined) {
+        db.settings.membership_price = Math.max(0, parseFloat(payload.settings.membership_price) || 0);
+      }
+      if (payload.settings.currency) {
+        db.settings.currency = sanitizeServerText(payload.settings.currency, 10) || 'USDT';
+      }
+      db.settings.updated_at = new Date().toISOString();
+    }
+    if (Array.isArray(payload.courses)) {
+      payload.courses.forEach(cp => {
+        const cId = sanitizeServerText(cp.id, 60);
+        const idx = db.courses.findIndex(c => c.id === cId);
+        if (idx !== -1) {
+          if (cp.price !== undefined) {
+            db.courses[idx].price = Math.max(0, parseFloat(cp.price) || 0);
+          }
+          if (cp.is_included_in_lifetime !== undefined) {
+            db.courses[idx].is_included_in_lifetime = cp.is_included_in_lifetime === true || cp.is_included_in_lifetime === 'true';
+          }
+        }
+      });
+    }
   }
 }
 
@@ -256,7 +302,8 @@ async function writeToGitHubWithRetry(action, payload, maxRetries = 3) {
       glossary: [],
       categories: [],
       user_access_map: {},
-      orders: []
+      orders: [],
+      settings: { membership_price: 50.00, currency: 'USDT' }
     };
 
     applyActionToDb(db, action, payload);

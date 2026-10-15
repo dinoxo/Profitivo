@@ -158,7 +158,12 @@
             Configura las cuentas y billeteras que verán los usuarios al momento de reportar su pago.
           </p>
         </div>
-        <button class="btn btn-primary" onclick="openAddMethodModal()">+ Nuevo Método</button>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-outline" onclick="openPricingModal()" style="border-color: var(--green-neon); color: var(--green-neon); font-weight: 600;">
+            💰 Costo de Membresía y Cursos
+          </button>
+          <button class="btn btn-primary" onclick="openAddMethodModal()">+ Nuevo Método</button>
+        </div>
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;" id="grid-admin-methods">
@@ -586,6 +591,66 @@
     </div>
   </div>
 
+  <!-- ============================================================================== -->
+  <!-- MODAL: CONFIGURACIÓN DE COSTO DE MEMBRESÍA Y PRECIOS DE CURSOS -->
+  <!-- ============================================================================== -->
+  <div class="modal-overlay" id="modal-pricing-settings" style="z-index: 2050;" onclick="if(event.target === this) closeModal('modal-pricing-settings')">
+    <div class="modal-content" style="max-width: 840px; max-height: 90vh; overflow-y: auto; position: relative;" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <h3 style="font-size: 1.35rem; color: var(--green-neon); display: flex; align-items: center; gap: 8px;">
+          💰 Configurar Costo de Membresía y Cursos
+        </h3>
+        <button onclick="closeModal('modal-pricing-settings')" style="background: none; border: none; color: var(--text-muted); font-size: 1.6rem; cursor: pointer;">&times;</button>
+      </div>
+
+      <!-- SECCIÓN 1: COSTO DE LA MEMBRESÍA VITALICIA -->
+      <div style="background: rgba(0, 230, 118, 0.05); border: 1px solid var(--green-neon); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 260px;">
+            <span class="badge badge-green" style="margin-bottom: 6px;">CONFIGURACIÓN GLOBAL</span>
+            <h4 style="font-size: 1.15rem; color: #fff; margin-bottom: 6px;">¿Cuánto deseas cobrar por la Membresía Vitalicia?</h4>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0;">
+              Este es el monto oficial que verán los nuevos estudiantes al registrarse y en el reporte de pago para activar su cuenta.
+            </p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; background: #060B14; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 4px 12px;">
+              <span style="color: var(--green-neon); font-size: 1.3rem; font-weight: bold; margin-right: 6px;">$</span>
+              <input type="number" id="pricing-membership-val" class="form-input" style="border: none; background: transparent; font-size: 1.25rem; font-weight: bold; color: #fff; width: 110px; padding: 6px 0;" step="0.01" min="0" placeholder="50.00">
+              <span style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600; margin-left: 6px;">USDT</span>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="saveMembershipPriceSetting()" style="padding: 10px 18px; font-weight: 700;">
+              💾 Guardar Precio
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECCIÓN 2: PRECIOS DE CURSOS EXISTENTES -->
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h4 style="font-size: 1.15rem; color: #fff; margin-bottom: 4px;">📚 Asignar Precios a los Cursos Existentes</h4>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">
+              Coloca el precio individual a cada curso o márcalo como "Incluido en Membresía Base ($0)".
+            </p>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="saveAllCoursesPricing()" style="padding: 8px 16px; font-size: 0.85rem;">
+            💾 Guardar Todos los Precios
+          </button>
+        </div>
+
+        <div id="pricing-courses-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+          <!-- Filas de cursos generadas dinámicamente -->
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-subtle); padding-top: 16px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-pricing-settings')">Cerrar</button>
+          <button type="button" class="btn btn-primary" onclick="saveAllCoursesPricing()">💾 Guardar Todos los Precios</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="toast" id="toast-msg">Mensaje</div>
 
@@ -1078,6 +1143,178 @@
         await window.ProfitivoAPI.deletePaymentMethod(id);
         showToast("Método de pago eliminado.");
         loadAdminMethods();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    // ==============================================================================
+    // 3.1 CONFIGURACIÓN DE COSTO DE MEMBRESÍA Y CURSOS
+    // ==============================================================================
+    let platformSettingsCache = { membership_price: 50.00, currency: 'USDT' };
+
+    async function openPricingModal() {
+      try {
+        platformSettingsCache = await window.ProfitivoAPI.getPlatformSettings();
+        document.getElementById('pricing-membership-val').value = (platformSettingsCache.membership_price !== undefined ? platformSettingsCache.membership_price : 50).toFixed(2);
+      } catch (e) {
+        document.getElementById('pricing-membership-val').value = '50.00';
+      }
+
+      if (!allCoursesCache || allCoursesCache.length === 0) {
+        allCoursesCache = await window.ProfitivoAPI.getCourses();
+      }
+
+      renderPricingModalCourses();
+      document.getElementById('modal-pricing-settings').classList.add('active');
+    }
+
+    function renderPricingModalCourses() {
+      const container = document.getElementById('pricing-courses-list');
+      if (!allCoursesCache || allCoursesCache.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-muted); text-align: center; padding: 20px;">No hay cursos registrados para configurar precios.</p>`;
+        return;
+      }
+
+      container.innerHTML = allCoursesCache.map(c => {
+        const isIncluded = c.is_included_in_lifetime === true || c.is_included_in_lifetime === 'true';
+        const price = Math.max(0, parseFloat(c.price) || 0);
+
+        return `
+          <div class="glass-card" style="padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: #060B14; border: 1px solid var(--border-subtle);" data-course-id="${c.id}">
+            <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 240px;">
+              <img src="${c.thumbnail_url || 'logo.png'}" style="width: 44px; height: 44px; object-fit: contain; border-radius: 6px; background: #0B1322; border: 1px solid var(--border-subtle);">
+              <div>
+                <strong style="color: #fff; font-size: 0.95rem; display: block;">${c.title}</strong>
+                <span class="badge ${isIncluded ? 'badge-green' : 'badge-gold'}" style="font-size: 0.72rem; padding: 2px 6px;">
+                  ${isIncluded ? 'BASE (MEMBRESÍA)' : 'ESPECIALIZADO'}
+                </span>
+                <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 6px;">Cat: ${getCategoryName(c.category)}</span>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <select class="form-select pricing-type-select" style="width: 190px; padding: 8px 10px; font-size: 0.85rem;" onchange="handleCoursePricingTypeChange('${c.id}', this.value)">
+                <option value="base" ${isIncluded ? 'selected' : ''}>📗 Incluido en Membresía ($0)</option>
+                <option value="pro" ${!isIncluded ? 'selected' : ''}>🔒 Especializado (De Pago)</option>
+              </select>
+
+              <div style="display: flex; align-items: center; background: #0B1322; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 2px 8px;">
+                <span style="color: var(--green-neon); font-size: 0.95rem; font-weight: bold; margin-right: 4px;">$</span>
+                <input type="number" id="course-price-input-${c.id}" class="form-input" style="border: none; background: transparent; font-size: 0.95rem; font-weight: bold; color: #fff; width: 75px; padding: 6px 0;" step="0.01" min="0" value="${price.toFixed(2)}" ${isIncluded ? 'disabled' : ''}>
+                <span style="color: var(--text-muted); font-size: 0.75rem; margin-left: 4px;">USDT</span>
+              </div>
+
+              <button type="button" class="btn btn-outline" onclick="saveSingleCoursePricing('${c.id}')" style="padding: 7px 12px; font-size: 0.8rem; border-color: var(--green-neon); color: var(--green-neon);" title="Guardar precio de este curso">
+                💾 Guardar
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function handleCoursePricingTypeChange(courseId, type) {
+      const priceInput = document.getElementById(`course-price-input-${courseId}`);
+      if (!priceInput) return;
+      if (type === 'base') {
+        priceInput.value = '0.00';
+        priceInput.disabled = true;
+      } else {
+        if (parseFloat(priceInput.value) === 0) {
+          priceInput.value = '50.00';
+        }
+        priceInput.disabled = false;
+        priceInput.focus();
+      }
+    }
+
+    async function saveMembershipPriceSetting() {
+      const valInput = document.getElementById('pricing-membership-val');
+      const cleanVal = parseFloat(valInput.value);
+      if (isNaN(cleanVal) || cleanVal < 0) {
+        showToast("Por favor ingresa un monto válido mayor o igual a 0.", true);
+        return;
+      }
+
+      try {
+        await window.ProfitivoAPI.savePlatformSettings({
+          membership_price: cleanVal,
+          currency: 'USDT'
+        });
+        platformSettingsCache.membership_price = cleanVal;
+        showToast(`✓ Precio de membresía guardado en $${cleanVal.toFixed(2)} USDT.`);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function saveSingleCoursePricing(courseId) {
+      const card = document.querySelector(`[data-course-id="${courseId}"]`);
+      if (!card) return;
+      const typeSelect = card.querySelector('.pricing-type-select');
+      const priceInput = document.getElementById(`course-price-input-${courseId}`);
+
+      const isBase = typeSelect.value === 'base';
+      const priceVal = isBase ? 0 : Math.max(0, parseFloat(priceInput.value) || 0);
+
+      try {
+        await window.ProfitivoAPI.updateCoursePrice(courseId, priceVal, isBase);
+        
+        // Actualizar cache local de cursos
+        const idx = allCoursesCache.findIndex(c => c.id === courseId);
+        if (idx !== -1) {
+          allCoursesCache[idx].price = priceVal;
+          allCoursesCache[idx].is_included_in_lifetime = isBase;
+        }
+        
+        loadAdminCourses();
+        renderPricingModalCourses();
+        showToast(`✓ Precio del curso actualizado: ${isBase ? 'Incluido en Membresía ($0)' : '$' + priceVal.toFixed(2) + ' USDT'}`);
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function saveAllCoursesPricing() {
+      const pricingList = [];
+      const cards = document.querySelectorAll('#pricing-courses-list [data-course-id]');
+      
+      cards.forEach(card => {
+        const cId = card.getAttribute('data-course-id');
+        const typeSelect = card.querySelector('.pricing-type-select');
+        const priceInput = document.getElementById(`course-price-input-${cId}`);
+        const isBase = typeSelect.value === 'base';
+        const priceVal = isBase ? 0 : Math.max(0, parseFloat(priceInput.value) || 0);
+
+        pricingList.push({
+          id: cId,
+          price: priceVal,
+          is_included_in_lifetime: isBase
+        });
+      });
+
+      const memVal = parseFloat(document.getElementById('pricing-membership-val').value) || 50;
+
+      try {
+        await window.ProfitivoAPI.batchUpdatePrices(
+          { membership_price: memVal, currency: 'USDT' },
+          pricingList
+        );
+
+        // Actualizar cache local
+        platformSettingsCache.membership_price = memVal;
+        pricingList.forEach(p => {
+          const idx = allCoursesCache.findIndex(c => c.id === p.id);
+          if (idx !== -1) {
+            allCoursesCache[idx].price = p.price;
+            allCoursesCache[idx].is_included_in_lifetime = p.is_included_in_lifetime;
+          }
+        });
+
+        loadAdminCourses();
+        renderPricingModalCourses();
+        showToast("✓ Todos los precios de membresía y cursos han sido guardados con éxito.");
       } catch (err) {
         showToast(err.message, true);
       }
