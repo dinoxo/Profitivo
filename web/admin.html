@@ -177,6 +177,9 @@
           </p>
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-outline" onclick="forceSyncWithCloud()" style="border-color: var(--green-neon); color: var(--green-neon);" title="Sincronizar cursos y términos con la nube inmediatamente">
+            ☁️ Sincronizar Nube
+          </button>
           <button class="btn btn-outline" onclick="openCategoriesModal()" style="border-color: var(--gold-prestige); color: var(--gold-prestige);" title="Ver, editar o crear categorías de cursos">
             🏷️ Categorías de Cursos
           </button>
@@ -643,6 +646,15 @@
         badge.textContent = `🛡️ Administrador: @${currentAdmin.username}`;
       }
 
+      // Sincronización automática con la nube global
+      if (window.ProfitivoCloudDB) {
+        try {
+          await window.ProfitivoCloudDB.autoSync();
+        } catch (e) {
+          console.warn("Fallo sincronización nube en inicio:", e);
+        }
+      }
+
       await loadCategoriesIntoSelect();
       allCoursesCache = await window.ProfitivoAPI.getCourses();
       await updateDashboardMetrics();
@@ -653,6 +665,23 @@
       loadAdminGlossary();
       loadRecoveryRequests();
     });
+
+    async function forceSyncWithCloud() {
+      showToast("⏳ Sincronizando cursos, glosario y asignaciones con la nube...", false);
+      if (window.ProfitivoCloudDB) {
+        try {
+          await window.ProfitivoCloudDB.autoSync();
+          allCoursesCache = await window.ProfitivoAPI.getCourses();
+          allGlossaryCache = await window.ProfitivoAPI.getAllGlossary();
+          loadAdminCourses();
+          loadAdminGlossary();
+          loadUsersDirectory();
+          showToast("☁️ ¡Todo sincronizado y visible en la web para todos los estudiantes!", false);
+        } catch (e) {
+          showToast("Error en sincronización: " + e.message, true);
+        }
+      }
+    }
 
     // Actualización de Métricas Globales Superiores
     async function updateDashboardMetrics() {

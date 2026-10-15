@@ -348,6 +348,15 @@
         document.getElementById('user-badge').textContent = `Estudiante: @${currentUser.username}`;
       }
 
+      // Sincronizar cursos y accesos desde la nube mundial
+      if (window.ProfitivoCloudDB) {
+        try {
+          await window.ProfitivoCloudDB.fetchCloud();
+        } catch (e) {
+          console.warn("Fallo sincronización nube portal:", e);
+        }
+      }
+
       // Cargar métodos de pago
       paymentMethodsCache = await window.ProfitivoAPI.getPaymentMethods();
       renderPaymentMethods();
