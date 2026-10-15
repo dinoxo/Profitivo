@@ -40,9 +40,9 @@ async function sbFetch(path, options = {}) {
 
 
 // ==============================================================================
-// 1.1 MOTOR DE SINCRONIZACIÓN EN LA NUBE (PROFITIVO CLOUD DATABASE)
-// Sincroniza en tiempo real cursos, glosarios, categorías y accesos de estudiantes
-// a nivel global para que todo lo creado en una laptop aparezca en TODAS las laptops.
+// 1.1 BASE DE DATOS WEB EN LA NUBE (PROFITIVO CLOUD DATABASE)
+// 100% WEB: NO almacena nada en el computador local.
+// Todos los cursos, glosarios, categorías y accesos se gestionan directamente vía web.
 // ==============================================================================
 const PROFITIVO_CLOUD_CONFIG = {
   ENDPOINT: '/api/sync-data',
@@ -53,59 +53,36 @@ const PROFITIVO_CLOUD_CONFIG = {
 
 const ProfitivoCloudDB = {
   _cache: null,
-  _isSyncing: false,
 
   fetchCloud: async function() {
     try {
-      // 1. Intentar por Cloudflare Pages Function
+      // 1. Intentar por Cloudflare Pages Function oficial
       try {
         const res = await fetch(`${PROFITIVO_CLOUD_CONFIG.ENDPOINT}?_t=${Date.now()}`);
         if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
           const json = await res.json();
           if (json.success && json.data) {
             this._cache = json.data;
-            this._applyToLocalStorage(json.data);
             return json.data;
           }
         }
-      } catch (e) {
-        // Fallback al CDN directo
-      }
+      } catch (e) {}
 
-      // 2. Fallback a raw GitHub CDN mundial
+      // 2. Fallback a raw CDN mundial
       const rawRes = await fetch(`${PROFITIVO_CLOUD_CONFIG.RAW_URL}?_t=${Date.now()}`);
       if (rawRes.ok && rawRes.headers.get('content-type')?.includes('application/json')) {
         const data = await rawRes.json();
         this._cache = data;
-        this._applyToLocalStorage(data);
         return data;
       }
     } catch (err) {
       console.warn("Fallo lectura de Cloud DB:", err);
     }
-    return null;
-  },
-
-  _applyToLocalStorage: function(cloudData) {
-    if (!cloudData) return;
-    if (Array.isArray(cloudData.courses) && cloudData.courses.length > 0) {
-      localStorage.setItem('profitivo_courses_db', JSON.stringify(cloudData.courses));
-    }
-    if (Array.isArray(cloudData.glossary)) {
-      localStorage.setItem('profitivo_glossary_db', JSON.stringify(cloudData.glossary));
-    }
-    if (Array.isArray(cloudData.categories) && cloudData.categories.length > 0) {
-      localStorage.setItem('profitivo_course_categories', JSON.stringify(cloudData.categories));
-    }
-    if (cloudData.user_access_map && typeof cloudData.user_access_map === 'object') {
-      const localMap = JSON.parse(localStorage.getItem('profitivo_user_access_map') || '{}');
-      const mergedMap = { ...cloudData.user_access_map, ...localMap };
-      localStorage.setItem('profitivo_user_access_map', JSON.stringify(mergedMap));
-    }
+    return this._cache || { courses: [], glossary: [], categories: [], user_access_map: {} };
   },
 
   dispatch: async function(action, payload) {
-    // 1. Intentar por endpoint Cloudflare
+    // 1. Intentar por endpoint web oficial
     try {
       const res = await fetch(PROFITIVO_CLOUD_CONFIG.ENDPOINT, {
         method: 'POST',
@@ -116,15 +93,14 @@ const ProfitivoCloudDB = {
         const json = await res.json();
         if (json.success && json.data) {
           this._cache = json.data;
-          this._applyToLocalStorage(json.data);
           return json.data;
         }
       }
     } catch (e) {
-      console.warn("Proxy sync falló, intentando subida directa por GitHub API:", e);
+      console.warn("Proxy sync falló, usando GitHub API directa:", e);
     }
 
-    // 2. Fallback directo a GitHub Contents API (para localhost, file:// o entorno estático)
+    // 2. Fallback directo a GitHub Contents API
     try {
       const getRes = await fetch(PROFITIVO_CLOUD_CONFIG.GITHUB_API, {
         headers: {
@@ -223,7 +199,6 @@ const ProfitivoCloudDB = {
 
         if (putRes.ok) {
           this._cache = db;
-          this._applyToLocalStorage(db);
           return db;
         }
       }
@@ -233,73 +208,46 @@ const ProfitivoCloudDB = {
     return null;
   },
 
-  autoSync: async function() {
-    if (this._isSyncing) return;
-    this._isSyncing = true;
+  initWebCloud: async function() {
+    // Si la computadora aún tenía datos locales guardados previamente, enviarlos a la nube y eliminar todo del disco
     try {
-      const cloud = await this.fetchCloud();
-      if (!cloud) return;
+      const oldCourses = JSON.parse(localStorage.getItem('profitivo_courses_db') || '[]');
+      const oldGlossary = JSON.parse(localStorage.getItem('profitivo_glossary_db') || '[]');
+      const oldCats = JSON.parse(localStorage.getItem('profitivo_course_categories') || '[]');
+      const oldAccess = JSON.parse(localStorage.getItem('profitivo_user_access_map') || '{}');
 
-      const localCourses = JSON.parse(localStorage.getItem('profitivo_courses_db') || '[]');
-      const localGlossary = JSON.parse(localStorage.getItem('profitivo_glossary_db') || '[]');
-      const localCategories = JSON.parse(localStorage.getItem('profitivo_course_categories') || '[]');
-      const localAccessMap = JSON.parse(localStorage.getItem('profitivo_user_access_map') || '{}');
-
-      const cloudCourseIds = new Set((cloud.courses || []).map(c => c.id));
-      const missingCourses = localCourses.filter(c => !cloudCourseIds.has(c.id));
-
-      const cloudGlossaryIds = new Set((cloud.glossary || []).map(g => g.id));
-      const missingGlossary = localGlossary.filter(g => !cloudGlossaryIds.has(g.id));
-
-      const cloudCatIds = new Set((cloud.categories || []).map(c => c.id));
-      const missingCategories = localCategories.filter(c => !cloudCatIds.has(c.id));
-
-      let hasNewAccess = false;
-      const cloudAccessMap = cloud.user_access_map || {};
-      for (const [uid, cids] of Object.entries(localAccessMap)) {
-        const cloudUserCourses = cloudAccessMap[uid] || [];
-        for (const cid of cids) {
-          if (!cloudUserCourses.includes(cid)) {
-            hasNewAccess = true;
-            break;
-          }
-        }
-        if (hasNewAccess) break;
-      }
-
-      if (missingCourses.length > 0 || missingGlossary.length > 0 || missingCategories.length > 0 || hasNewAccess) {
-        console.log(`[Profitivo Cloud] Detectados datos locales pendientes: ${missingCourses.length} cursos, ${missingGlossary.length} términos.`);
+      if (oldCourses.length > 0 || oldGlossary.length > 0 || oldCats.length > 0 || Object.keys(oldAccess).length > 0) {
         await this.dispatch('MERGE_ALL', {
-          courses: localCourses,
-          glossary: localGlossary,
-          categories: localCategories,
-          user_access_map: localAccessMap
+          courses: oldCourses,
+          glossary: oldGlossary,
+          categories: oldCats,
+          user_access_map: oldAccess
         });
-        console.log(`[Profitivo Cloud] ¡Sincronización a la nube completada!`);
+        // Limpiar el computador local: nada queda almacenado en disco
+        localStorage.removeItem('profitivo_courses_db');
+        localStorage.removeItem('profitivo_glossary_db');
+        localStorage.removeItem('profitivo_course_categories');
+        localStorage.removeItem('profitivo_user_access_map');
       }
-    } catch (e) {
-      console.warn("Fallo autoSync:", e);
-    } finally {
-      this._isSyncing = false;
-    }
+    } catch (e) {}
+
+    // Cargar los datos oficiales en memoria directamente desde la web
+    await this.fetchCloud();
   },
 
   getUserAccessMap: async function() {
     if (this._cache && this._cache.user_access_map) {
       return this._cache.user_access_map;
     }
-    await this.fetchCloud();
-    if (this._cache && this._cache.user_access_map) {
-      return this._cache.user_access_map;
-    }
-    return JSON.parse(localStorage.getItem('profitivo_user_access_map') || '{}');
+    const cloud = await this.fetchCloud();
+    return (cloud && cloud.user_access_map) ? cloud.user_access_map : {};
   }
 };
 
-// Iniciar sincronización de datos con la nube de inmediato en segundo plano
+// Inicializar conexión web en segundo plano
 if (typeof window !== 'undefined') {
   window.ProfitivoCloudDB = ProfitivoCloudDB;
-  ProfitivoCloudDB.autoSync();
+  ProfitivoCloudDB.initWebCloud();
 }
 
 // ==============================================================================
@@ -1071,41 +1019,24 @@ const ProfitivoAPI = {
   },
 
   toggleUserCourse: async (userId, courseId, shouldUnlock) => {
-    // 1. Sincronizar inmediatamente en la nube global (Cloud DB)
+    // 100% Web: guardar directamente en la nube
     await ProfitivoCloudDB.dispatch('TOGGLE_USER_COURSE', {
       user_id: userId,
       course_id: courseId,
       should_unlock: shouldUnlock
     });
 
-    // 2. Guardar en mapa persistente de accesos por usuario
-    const accessMap = JSON.parse(localStorage.getItem('profitivo_user_access_map') || '{}');
-    let userCourses = accessMap[userId] ? [...accessMap[userId]] : [];
+    const accessMap = await ProfitivoCloudDB.getUserAccessMap();
+    const userCourses = accessMap[userId] || [];
 
-    if (shouldUnlock) {
-      if (!userCourses.includes(courseId)) userCourses.push(courseId);
-    } else {
-      userCourses = userCourses.filter(c => c !== courseId);
-    }
-    accessMap[userId] = userCourses;
-    localStorage.setItem('profitivo_user_access_map', JSON.stringify(accessMap));
-
-    // 3. Sincronizar en array local de usuarios
-    const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
-    const idx = users.findIndex(u => u.id === userId);
-    if (idx !== -1) {
-      users[idx].unlocked_courses = userCourses;
-      localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
-    }
-
-    // 4. Si el usuario modificado es el de la sesión activa, actualizar sesión
+    // Si el usuario modificado es el de la sesión activa, actualizar sesión
     const cur = getSessionUser();
     if (cur && cur.id === userId) {
       cur.unlocked_courses = userCourses;
       setSessionUser(cur);
     }
 
-    // 5. Intentar sincronización con Supabase user_course_access si está configurado
+    // Intentar sincronización con Supabase user_course_access si está configurado
     if (isSupabaseConfigured()) {
       try {
         if (shouldUnlock) {
@@ -1180,22 +1111,15 @@ const ProfitivoAPI = {
     }
   },
 
-  // Cursos sincronizados en la nube
+  // Cursos 100% Web (Sin guardar nada en el computador local)
   getCourses: async () => {
-    // 1. Intentar cargar desde Supabase si la tabla existe
     if (isSupabaseConfigured()) {
       const remote = await sbFetch('courses?is_published=eq.true&order=sort_order.asc&select=*');
       if (remote && remote.length > 0) return remote;
     }
 
-    // 2. Cargar desde ProfitivoCloudDB (nube global compartida)
     const cloud = await ProfitivoCloudDB.fetchCloud();
-    if (cloud && Array.isArray(cloud.courses) && cloud.courses.length > 0) {
-      return cloud.courses;
-    }
-
-    // 3. Fallback a cache local
-    return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_COURSES) || '[]');
+    return (cloud && Array.isArray(cloud.courses)) ? cloud.courses : [];
   },
 
   // Subida de Videos a GitHub CDN Oficial de la Empresa (puneta29/profitivo-videos)
@@ -1257,14 +1181,13 @@ const ProfitivoAPI = {
 
   saveCourse: async (courseData, videoFile) => {
     const isEdit = !!courseData.id;
-    const courses = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_COURSES) || '[]');
     const courseId = courseData.id || ('course-' + Date.now());
 
     let videoUrl = courseData.video_url || '';
     if (videoFile) {
       videoUrl = await ProfitivoAPI.uploadVideoToGitHub(videoFile);
     } else if (isEdit && !videoUrl) {
-      const existing = courses.find(c => c.id === courseId);
+      const existing = (ProfitivoCloudDB._cache?.courses || []).find(c => c.id === courseId);
       if (existing) videoUrl = existing.video_url;
     }
 
@@ -1283,10 +1206,10 @@ const ProfitivoAPI = {
       created_at: courseData.created_at || new Date().toISOString()
     };
 
-    // 1. Guardar y sincronizar en la nube global (Cloud DB) de inmediato
+    // 100% Web: guardar y sincronizar en la nube global directamente
     await ProfitivoCloudDB.dispatch('SAVE_COURSE', updatedCourse);
 
-    // 2. Intentar guardar en Supabase si la tabla existe
+    // Intentar guardar en Supabase si la tabla existe
     if (isSupabaseConfigured()) {
       if (isEdit) {
         await sbFetch(`courses?id=eq.${courseId}`, {
@@ -1301,45 +1224,27 @@ const ProfitivoAPI = {
       }
     }
 
-    // 3. Guardar en localStorage
-    const existingIndex = courses.findIndex(c => c.id === courseId);
-    if (existingIndex !== -1) {
-      courses[existingIndex] = { ...courses[existingIndex], ...updatedCourse };
-    } else {
-      courses.push(updatedCourse);
-    }
-    localStorage.setItem(LOCAL_STORAGE_KEY_COURSES, JSON.stringify(courses));
-
     return updatedCourse;
   },
 
   deleteCourse: async (courseId) => {
-    // 1. Eliminar en la nube global (Cloud DB)
+    // 100% Web: eliminar directamente en la nube
     await ProfitivoCloudDB.dispatch('DELETE_COURSE', { id: courseId });
 
-    // 2. Intentar eliminar en Supabase
     if (isSupabaseConfigured()) {
       await sbFetch(`courses?id=eq.${courseId}`, { method: 'DELETE' });
     }
-
-    // 3. Eliminar en localStorage
-    let courses = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_COURSES) || '[]');
-    courses = courses.filter(c => c.id !== courseId);
-    localStorage.setItem(LOCAL_STORAGE_KEY_COURSES, JSON.stringify(courses));
     return true;
   },
 
-  // Glosario Completo (Sincronizado en la Nube y Supabase)
+  // Glosario Completo 100% Web
   getAllGlossary: async () => {
     if (isSupabaseConfigured()) {
       const remote = await sbFetch('course_glossary?order=sort_order.asc&select=*');
       if (remote && remote.length > 0) return remote;
     }
     const cloud = await ProfitivoCloudDB.fetchCloud();
-    if (cloud && Array.isArray(cloud.glossary) && cloud.glossary.length > 0) {
-      return cloud.glossary;
-    }
-    return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_GLOSSARY) || '[]');
+    return (cloud && Array.isArray(cloud.glossary)) ? cloud.glossary : [];
   },
 
   getCourseGlossary: async (courseId) => {
@@ -1361,10 +1266,9 @@ const ProfitivoAPI = {
       definition: termData.definition
     };
 
-    // 1. Sincronizar en la nube global (Cloud DB)
+    // 100% Web: guardar directamente en la nube
     await ProfitivoCloudDB.dispatch('SAVE_GLOSSARY', newTerm);
 
-    // 2. Intentar guardar en Supabase
     if (isSupabaseConfigured()) {
       if (isEdit) {
         await sbFetch(`course_glossary?id=eq.${termId}`, {
@@ -1379,32 +1283,16 @@ const ProfitivoAPI = {
       }
     }
 
-    // 3. Guardar en localStorage
-    const items = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_GLOSSARY) || '[]');
-    if (isEdit) {
-      const idx = items.findIndex(g => g.id === termId);
-      if (idx !== -1) items[idx] = { ...items[idx], ...newTerm };
-      else items.push(newTerm);
-    } else {
-      items.push(newTerm);
-    }
-    localStorage.setItem(LOCAL_STORAGE_KEY_GLOSSARY, JSON.stringify(items));
     return newTerm;
   },
 
   deleteGlossaryTerm: async (termId) => {
-    // 1. Eliminar en la nube global
+    // 100% Web: eliminar directamente en la nube
     await ProfitivoCloudDB.dispatch('DELETE_GLOSSARY', { id: termId });
 
-    // 2. Intentar eliminar en Supabase
     if (isSupabaseConfigured()) {
       await sbFetch(`course_glossary?id=eq.${termId}`, { method: 'DELETE' });
     }
-
-    // 3. Eliminar en localStorage
-    let items = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_GLOSSARY) || '[]');
-    items = items.filter(g => g.id !== termId);
-    localStorage.setItem(LOCAL_STORAGE_KEY_GLOSSARY, JSON.stringify(items));
     return true;
   },
 
@@ -1412,25 +1300,18 @@ const ProfitivoAPI = {
     return ProfitivoAPI.saveGlossaryTerm(termData);
   },
 
-  // Gestión de Categorías de Cursos (Sincronizadas en la nube)
+  // Gestión de Categorías de Cursos 100% Web
   getCategories: async () => {
     const cloud = await ProfitivoCloudDB.fetchCloud();
     if (cloud && Array.isArray(cloud.categories) && cloud.categories.length > 0) {
-      localStorage.setItem('profitivo_course_categories', JSON.stringify(cloud.categories));
       return cloud.categories;
     }
-    const key = 'profitivo_course_categories';
-    let cats = JSON.parse(localStorage.getItem(key) || 'null');
-    if (!cats || !Array.isArray(cats) || cats.length === 0) {
-      cats = [
-        { id: 'TRADING', name: 'Trading & Finanzas' },
-        { id: 'CRYPTO', name: 'Criptomonedas & Web3' },
-        { id: 'TECH_UX', name: 'Tecnología UX/UI' },
-        { id: 'PSYCHOLOGY', name: 'Psicología de Mercado' }
-      ];
-      localStorage.setItem(key, JSON.stringify(cats));
-    }
-    return cats;
+    return [
+      { id: 'TRADING', name: 'Trading & Finanzas' },
+      { id: 'CRYPTO', name: 'Criptomonedas & Web3' },
+      { id: 'TECH_UX', name: 'Tecnología UX/UI' },
+      { id: 'PSYCHOLOGY', name: 'Psicología de Mercado' }
+    ];
   },
 
   saveCategory: async (catData) => {
@@ -1456,7 +1337,7 @@ const ProfitivoAPI = {
       updatedCat = { id: newId, name: cleanName };
       cats.push(updatedCat);
     }
-    localStorage.setItem('profitivo_course_categories', JSON.stringify(cats));
+    // 100% Web: guardar directamente en la nube
     await ProfitivoCloudDB.dispatch('SAVE_CATEGORY', updatedCat);
     return cats;
   },
@@ -1464,7 +1345,7 @@ const ProfitivoAPI = {
   deleteCategory: async (catId) => {
     let cats = await ProfitivoAPI.getCategories();
     cats = cats.filter(c => c.id !== catId);
-    localStorage.setItem('profitivo_course_categories', JSON.stringify(cats));
+    // 100% Web: eliminar directamente en la nube
     await ProfitivoCloudDB.dispatch('DELETE_CATEGORY', { id: catId });
     return cats;
   }
