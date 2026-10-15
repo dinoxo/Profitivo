@@ -233,6 +233,24 @@ const ProfitivoCloudDB = {
         this._cache.orders[idx].reviewed_by = payload.reviewed_by || 'Admin';
         this._cache.orders[idx].reviewed_at = new Date().toISOString();
       }
+    } else if (action === 'DELETE_STUDENT_CASCADE') {
+      const uid = payload.user_id;
+      const uEmail = payload.user_email ? payload.user_email.toLowerCase() : null;
+      const uName = payload.user_name ? payload.user_name.toLowerCase() : null;
+      if (this._cache.orders) {
+        this._cache.orders = this._cache.orders.filter(o => {
+          if (uid && o.user_id === uid) return false;
+          if (uEmail && o.user_email && o.user_email.toLowerCase() === uEmail) return false;
+          if (uName && o.user_name && o.user_name.toLowerCase() === uName) return false;
+          return true;
+        });
+      }
+      if (this._cache.user_access_map && uid) {
+        delete this._cache.user_access_map[uid];
+      }
+      if (this._cache.lifetime_users && uid) {
+        this._cache.lifetime_users = this._cache.lifetime_users.filter(id => id !== uid);
+      }
     }
     this._lastUpdated = Date.now();
 
@@ -415,6 +433,24 @@ const ProfitivoCloudDB = {
             db.orders[idx].reviewed_by = payload.reviewed_by || 'Admin';
             db.orders[idx].reviewed_at = new Date().toISOString();
           }
+        } else if (action === 'DELETE_STUDENT_CASCADE') {
+          const uid = payload.user_id;
+          const uEmail = payload.user_email ? payload.user_email.toLowerCase() : null;
+          const uName = payload.user_name ? payload.user_name.toLowerCase() : null;
+          if (db.orders) {
+            db.orders = db.orders.filter(o => {
+              if (uid && o.user_id === uid) return false;
+              if (uEmail && o.user_email && o.user_email.toLowerCase() === uEmail) return false;
+              if (uName && o.user_name && o.user_name.toLowerCase() === uName) return false;
+              return true;
+            });
+          }
+          if (db.user_access_map && uid) {
+            delete db.user_access_map[uid];
+          }
+          if (db.lifetime_users && uid) {
+            db.lifetime_users = db.lifetime_users.filter(id => id !== uid);
+          }
         }
 
         db.updated_at = new Date().toISOString();
@@ -480,11 +516,11 @@ const ProfitivoCloudDB = {
     return (cloud && cloud.user_access_map) ? cloud.user_access_map : {};
   },
 
-  getSettings: async function() {
-    if (this._cache && this._cache.settings) {
+  getSettings: async function(force = false) {
+    if (!force && this._cache && this._cache.settings) {
       return this._cache.settings;
     }
-    const cloud = await this.fetchCloud();
+    const cloud = await this.fetchCloud(force);
     return (cloud && cloud.settings) ? cloud.settings : { membership_price: 50.00, currency: 'USDT' };
   }
 };
@@ -1789,9 +1825,64 @@ const ProfitivoAPI = {
     return cats;
   },
 
+  // Eliminación en Cascada de Estudiante (100% Nube y Local)
+  deleteStudentCascade: async (userId) => {
+    const cleanId = Sanitizer.cleanText(userId, 60);
+    const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
+    const userIdx = users.findIndex(u => u.id === cleanId);
+    const student = userIdx !== -1 ? users[userIdx] : null;
+
+    const payload = {
+      user_id: cleanId,
+      user_email: student ? Sanitizer.cleanEmail(student.email) : null,
+      user_name: student ? Sanitizer.cleanText(student.username, 100) : null
+    };
+
+    // 1. Sincronizar purga en cascada en la nube mundial
+    try {
+      await ProfitivoCloudDB.dispatch('DELETE_STUDENT_CASCADE', payload);
+    } catch (e) {
+      console.warn("Fallo dispatch DELETE_STUDENT_CASCADE:", e);
+    }
+
+    // 2. Purgar órdenes locales del usuario
+    const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
+    const filteredOrders = orders.filter(o => {
+      if (o.user_id === cleanId) return false;
+      if (payload.user_email && o.user_email && o.user_email.toLowerCase() === payload.user_email.toLowerCase()) return false;
+      if (payload.user_name && o.user_name && o.user_name.toLowerCase() === payload.user_name.toLowerCase()) return false;
+      return true;
+    });
+    localStorage.setItem(LOCAL_STORAGE_KEY_ORDERS, JSON.stringify(filteredOrders));
+
+    // 3. Purgar mapa de accesos local
+    const accessMap = JSON.parse(localStorage.getItem('profitivo_user_access_map') || '{}');
+    if (accessMap[cleanId]) {
+      delete accessMap[cleanId];
+      localStorage.setItem('profitivo_user_access_map', JSON.stringify(accessMap));
+    }
+
+    // 4. Purgar usuario de la lista local
+    if (userIdx !== -1) {
+      users.splice(userIdx, 1);
+      localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
+    }
+
+    // 5. Si Supabase está configurado, purgar tablas remotas
+    if (isSupabaseConfigured()) {
+      try {
+        await sbFetch(`orders_transactions?user_id=eq.${cleanId}`, { method: 'DELETE' });
+        await sbFetch(`user_course_access?user_id=eq.${cleanId}`, { method: 'DELETE' });
+        await sbFetch(`users?id=eq.${cleanId}`, { method: 'DELETE' });
+      } catch (e) {}
+    }
+
+    return true;
+  },
+
   // Gestión de Precios de Membresía y Cursos 100% Web
-  getPlatformSettings: async () => {
-    return await ProfitivoCloudDB.getSettings();
+  getPlatformSettings: async (force = false) => {
+    return await ProfitivoCloudDB.getSettings(force);
   },
 
   savePlatformSettings: async (settingsData) => {

@@ -361,6 +361,40 @@ function applyActionToDb(db, action, payload) {
       db.orders[idx].reviewed_by = reviewedBy;
       db.orders[idx].reviewed_at = new Date().toISOString();
     }
+  } else if (action === 'DELETE_STUDENT_CASCADE') {
+    const userId = sanitizeServerText(payload.user_id, 60);
+    const userEmail = sanitizeServerText(payload.user_email, 100).toLowerCase();
+    const userName = sanitizeServerText(payload.user_name, 100).toLowerCase();
+
+    // 1. Eliminar órdenes del estudiante
+    if (Array.isArray(db.orders)) {
+      db.orders = db.orders.filter(o => {
+        if (userId && o.user_id === userId) return false;
+        if (userEmail && o.user_email && o.user_email.toLowerCase() === userEmail) return false;
+        if (userName && o.user_name && o.user_name.toLowerCase() === userName) return false;
+        return true;
+      });
+    }
+
+    // 2. Eliminar accesos a cursos
+    if (db.user_access_map && userId) {
+      delete db.user_access_map[userId];
+    }
+
+    // 3. Eliminar de membresía vitalicia
+    if (Array.isArray(db.lifetime_users) && userId) {
+      db.lifetime_users = db.lifetime_users.filter(id => id !== userId);
+    }
+
+    // 4. Si existen usuarios almacenados en la nube, purgarlo
+    if (Array.isArray(db.users)) {
+      db.users = db.users.filter(u => {
+        if (userId && u.id === userId) return false;
+        if (userEmail && u.email && u.email.toLowerCase() === userEmail) return false;
+        if (userName && u.username && u.username.toLowerCase() === userName) return false;
+        return true;
+      });
+    }
   }
 }
 

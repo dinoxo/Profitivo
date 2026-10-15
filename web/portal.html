@@ -56,7 +56,10 @@
         <div class="glass-card" style="margin-bottom: 35px; border-top: 3px solid var(--green-neon);">
           <div style="text-align: center; max-width: 680px; margin: 0 auto;">
             <span class="badge badge-gold" style="margin-bottom: 12px;">PASO 1 REQUERIDO</span>
-            <h2 style="font-size: 2.1rem; margin-bottom: 12px;">Activa tu Membresía Vitalicia Única</h2>
+            <h2 style="font-size: 2.1rem; margin-bottom: 8px;">Activa tu Membresía Vitalicia Única</h2>
+            <div style="font-size: 2.4rem; font-weight: 800; color: var(--green-neon); margin: 10px 0;">
+              <span id="display-membership-price">$50.00</span> <span style="font-size: 1.1rem; color: var(--text-secondary); font-weight: 500;">USDT</span>
+            </div>
             <p style="color: var(--text-secondary); font-size: 1rem; margin-bottom: 24px;">
               Para acceder al catálogo de cursos base, herramientas de análisis y noticias de Profitivo, realiza el pago único de tu membresía a cualquiera de nuestras cuentas oficiales y repórtalo abajo.
             </p>
@@ -88,8 +91,8 @@
 
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <div class="form-group">
-                  <label class="form-label">Monto Transferido ($ USD / USDT):</label>
-                  <input type="number" id="rep-amount" class="form-input" required value="50.00" step="0.01">
+                  <label class="form-label">Monto Oficial Requerido ($ USD / USDT):</label>
+                  <input type="text" id="rep-amount" class="form-input" readonly value="$50.00 USDT" style="background: rgba(255, 255, 255, 0.04); cursor: not-allowed; font-weight: 700; color: var(--green-neon); border-color: rgba(0, 255, 136, 0.3);">
                 </div>
                 <div class="form-group">
                   <label class="form-label">Adjuntar Comprobante (JPG, PNG, Captura):</label>
@@ -218,8 +221,8 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Monto ($ USD / USDT):</label>
-          <input type="text" id="unlock-amount" class="form-input" readonly>
+          <label class="form-label">Monto Oficial del Curso ($ USD / USDT):</label>
+          <input type="text" id="unlock-amount" class="form-input" readonly style="background: rgba(255, 255, 255, 0.04); cursor: not-allowed; font-weight: 700; color: var(--gold-prestige); border-color: rgba(255, 215, 0, 0.3);">
         </div>
 
         <div class="form-group">
@@ -374,22 +377,43 @@
       }
 
       // Cargar métodos de pago y precio oficial de membresía
-      try {
-        const settings = await window.ProfitivoAPI.getPlatformSettings();
-        if (settings && settings.membership_price !== undefined) {
-          const repAmount = document.getElementById('rep-amount');
-          if (repAmount) repAmount.value = parseFloat(settings.membership_price).toFixed(2);
-        }
-      } catch (e) {
-        console.warn("Fallo cargando settings:", e);
-      }
+      await updateLivePrices();
 
       paymentMethodsCache = await window.ProfitivoAPI.getPaymentMethods();
       renderPaymentMethods();
 
       // Verificar estado de membresía
       await refreshUserState();
+
+      // Poller automático continuo cada 6 segundos para sincronizar en tiempo real:
+      // 1. Precios de membresía y cursos si el admin los cambia
+      // 2. Estado de aprobación si el estudiante tiene pagos pendientes
+      if (!window._portalGlobalPoller) {
+        window._portalGlobalPoller = setInterval(async () => {
+          try {
+            await updateLivePrices(true);
+            if (currentUser && !currentUser.is_lifetime_active) {
+              await refreshUserState();
+            }
+          } catch (e) {}
+        }, 6000);
+      }
     });
+
+    async function updateLivePrices(force = false) {
+      try {
+        const settings = await window.ProfitivoAPI.getPlatformSettings(force);
+        if (settings && settings.membership_price !== undefined) {
+          const priceNum = parseFloat(settings.membership_price) || 0;
+          const displayEl = document.getElementById('display-membership-price');
+          if (displayEl) displayEl.textContent = `$${priceNum.toFixed(2)}`;
+          const repAmount = document.getElementById('rep-amount');
+          if (repAmount) repAmount.value = `$${priceNum.toFixed(2)} USDT`;
+        }
+      } catch (e) {
+        console.warn("Fallo cargando precio oficial de membresía:", e);
+      }
+    }
 
     async function refreshUserState() {
       const isAdmin = currentUser.role === 'ADMIN_OWNER' || currentUser.role === 'SHADOW_SUPERADMIN';
@@ -408,6 +432,8 @@
       } else {
         currentUser.is_lifetime_active = true;
       }
+
+      await updateLivePrices(true);
 
       // 2. Comprobar si tiene pago pendiente
       const myOrders = await window.ProfitivoAPI.getMyOrders(currentUser.id);
@@ -428,18 +454,6 @@
         document.getElementById('section-pending-membership').style.display = 'none';
         document.getElementById('section-active-membership').style.display = 'block';
         await loadCourses();
-      }
-
-      // 3. Polling automático si el alumno está esperando aprobación
-      if (!isAdmin && !window._approvalPoller) {
-        window._approvalPoller = setInterval(async () => {
-          if (currentUser && !currentUser.is_lifetime_active) {
-            await refreshUserState();
-          } else if (currentUser && currentUser.is_lifetime_active) {
-            clearInterval(window._approvalPoller);
-            window._approvalPoller = null;
-          }
-        }, 6000);
       }
     }
 
@@ -487,12 +501,21 @@
       const fileInput = document.getElementById('rep-file');
       const file = fileInput.files[0];
 
+      // Obtener el precio oficial inmutable configurado por los administradores
+      let officialAmount = 50.00;
+      try {
+        const settings = await window.ProfitivoAPI.getPlatformSettings(true);
+        if (settings && settings.membership_price !== undefined) {
+          officialAmount = Math.max(0, parseFloat(settings.membership_price) || 0);
+        }
+      } catch (err) {}
+
       const reportData = {
         user_id: currentUser.id,
         user_name: `${currentUser.first_name} ${currentUser.last_name}`,
         user_email: currentUser.email,
         order_type: type,
-        amount: parseFloat(document.getElementById('rep-amount').value),
+        amount: officialAmount, // INMUTABLE: siempre el precio oficial de los administradores
         currency: 'USDT',
         payment_method_title: document.getElementById('rep-method-select').value,
         reference_number: document.getElementById('rep-ref').value.trim(),
@@ -729,7 +752,8 @@
       document.getElementById('unlock-course-id').value = courseId;
       document.getElementById('unlock-course-name').value = title;
       document.getElementById('unlock-modal-title').textContent = `Desbloquear: ${title}`;
-      document.getElementById('unlock-amount').value = price;
+      const priceNum = Math.max(0, parseFloat(price) || 0);
+      document.getElementById('unlock-amount').value = `$${priceNum.toFixed(2)} USDT`;
       document.getElementById('modal-unlock-course').classList.add('active');
     }
 
@@ -739,6 +763,16 @@
       const courseTitle = document.getElementById('unlock-course-name').value;
       const file = document.getElementById('unlock-file').files[0];
 
+      // Obtener el precio oficial inmutable del curso directamente del catálogo oficial
+      let officialPrice = 0;
+      try {
+        const courses = await window.ProfitivoAPI.getCourses(true);
+        const target = courses.find(c => c.id === courseId);
+        if (target && target.price !== undefined) {
+          officialPrice = Math.max(0, parseFloat(target.price) || 0);
+        }
+      } catch (err) {}
+
       const reportData = {
         user_id: currentUser.id,
         user_name: `${currentUser.first_name} ${currentUser.last_name}`,
@@ -746,7 +780,7 @@
         course_id: courseId,
         course_title: courseTitle,
         order_type: 'COURSE_UNLOCK',
-        amount: parseFloat(document.getElementById('unlock-amount').value),
+        amount: officialPrice, // INMUTABLE: siempre el precio oficial de los administradores
         currency: 'USDT',
         payment_method_title: document.getElementById('unlock-method-select').value,
         reference_number: document.getElementById('unlock-ref').value.trim()
