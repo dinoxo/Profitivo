@@ -103,7 +103,7 @@ function sanitizeServerText(str, maxLen = 2000) {
 function sanitizeServerUrl(url) {
   if (!url) return '';
   const s = String(url).trim();
-  if (/^(https?:\/\/|\/|blob:)/i.test(s)) {
+  if (/^(https?:\/\/|\/|blob:|data:image\/(jpeg|png|webp|gif|svg\+xml);base64,)/i.test(s)) {
     return s.replace(/[<>"'`\\]/g, '');
   }
   return '';
@@ -115,6 +115,8 @@ function applyActionToDb(db, action, payload) {
   if (!db.categories) db.categories = [];
   if (!db.user_access_map) db.user_access_map = {};
   if (!db.settings) db.settings = { membership_price: 50.00, currency: 'USDT' };
+  if (!db.orders) db.orders = [];
+  if (!db.lifetime_users) db.lifetime_users = [];
 
   if (action === 'SAVE_COURSE') {
     const course = {
@@ -289,6 +291,75 @@ function applyActionToDb(db, action, payload) {
           }
         }
       });
+    }
+  } else if (action === 'SAVE_ORDER') {
+    if (!db.orders) db.orders = [];
+    const order = {
+      id: sanitizeServerText(payload.id, 60) || ('ord-' + Date.now()),
+      user_id: sanitizeServerText(payload.user_id, 60),
+      user_name: sanitizeServerText(payload.user_name, 100),
+      user_email: sanitizeServerText(payload.user_email, 100),
+      course_id: payload.course_id ? sanitizeServerText(payload.course_id, 60) : null,
+      course_title: sanitizeServerText(payload.course_title, 150) || 'Membresía Vitalicia',
+      order_type: sanitizeServerText(payload.order_type, 40) || 'LIFETIME_MEMBERSHIP',
+      amount: Math.max(0, parseFloat(payload.amount) || 0),
+      currency: sanitizeServerText(payload.currency, 10) || 'USDT',
+      payment_method_title: sanitizeServerText(payload.payment_method_title, 80),
+      reference_number: sanitizeServerText(payload.reference_number, 100),
+      receipt_file_url: sanitizeServerUrl(payload.receipt_file_url) || payload.receipt_file_url || 'logo.png',
+      user_notes: sanitizeServerText(payload.user_notes, 500),
+      status: 'PENDING_REVIEW',
+      created_at: payload.created_at || new Date().toISOString()
+    };
+    const idx = db.orders.findIndex(o => o.id === order.id);
+    if (idx !== -1) {
+      db.orders[idx] = { ...db.orders[idx], ...order };
+    } else {
+      db.orders.unshift(order);
+    }
+    if (db.orders.length > 300) {
+      db.orders = db.orders.slice(0, 300);
+    }
+  } else if (action === 'APPROVE_ORDER') {
+    if (!db.orders) db.orders = [];
+    const orderId = sanitizeServerText(payload.order_id, 60);
+    const reviewedBy = sanitizeServerText(payload.reviewed_by, 50) || 'Admin';
+    const idx = db.orders.findIndex(o => o.id === orderId);
+    let order = null;
+    if (idx !== -1) {
+      db.orders[idx].status = 'APPROVED';
+      db.orders[idx].reviewed_by = reviewedBy;
+      db.orders[idx].reviewed_at = new Date().toISOString();
+      order = db.orders[idx];
+    }
+    const userId = payload.user_id || (order ? order.user_id : null);
+    const courseId = payload.course_id || (order ? order.course_id : null);
+    const isLifetime = payload.is_lifetime || (order ? (order.order_type === 'LIFETIME_MEMBERSHIP' || !order.course_id) : false);
+
+    if (userId) {
+      if (isLifetime) {
+        if (!db.lifetime_users) db.lifetime_users = [];
+        if (!db.lifetime_users.includes(userId)) db.lifetime_users.push(userId);
+      }
+      if (courseId) {
+        if (!db.user_access_map) db.user_access_map = {};
+        if (!db.user_access_map[userId]) db.user_access_map[userId] = [];
+        if (!db.user_access_map[userId].includes(courseId)) {
+          db.user_access_map[userId].push(courseId);
+        }
+      }
+    }
+  } else if (action === 'REJECT_ORDER') {
+    if (!db.orders) db.orders = [];
+    const orderId = sanitizeServerText(payload.order_id, 60);
+    const reason = sanitizeServerText(payload.rejection_reason, 500);
+    const reviewedBy = sanitizeServerText(payload.reviewed_by, 50) || 'Admin';
+    const idx = db.orders.findIndex(o => o.id === orderId);
+    if (idx !== -1) {
+      db.orders[idx].status = 'REJECTED';
+      db.orders[idx].rejection_reason = reason;
+      db.orders[idx].reviewed_by = reviewedBy;
+      db.orders[idx].reviewed_at = new Date().toISOString();
     }
   }
 }

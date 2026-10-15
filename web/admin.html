@@ -82,6 +82,17 @@
     <!-- TAB 1: BANDEJA DE APROBACIÓN DE PAGOS -->
     <!-- ============================================================================== -->
     <div id="tab-pagos" class="glass-card">
+      <div id="banner-pending-alert" style="display: none; background: rgba(255, 152, 0, 0.12); border: 1px solid #FF9800; border-radius: 10px; padding: 12px 18px; margin-bottom: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 1.6rem;">🔔</span>
+          <div>
+            <strong style="color: #FF9800; font-size: 1rem;">¡Atención Administrador: Tienes comprobantes de pago por revisar!</strong>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">Revisa el comprobante bancario abajo y presiona "Aprobar" para activar de inmediato el acceso al alumno.</p>
+          </div>
+        </div>
+        <span class="badge badge-gold" id="badge-alert-count">0 pendientes</span>
+      </div>
+
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
           <h3 style="font-size: 1.4rem;">Bandeja de Pagos en Espera</h3>
@@ -89,7 +100,7 @@
             Verifica el comprobante y número de operación para activar la membresía o el curso del estudiante.
           </p>
         </div>
-        <button class="btn btn-outline" onclick="loadPendingOrders()">🔄 Refrescar</button>
+        <button class="btn btn-outline" onclick="loadPendingOrders(true)">🔄 Refrescar</button>
       </div>
 
       <div class="table-responsive">
@@ -722,12 +733,25 @@
       await loadCategoriesIntoSelect();
       allCoursesCache = await window.ProfitivoAPI.getCourses();
       await updateDashboardMetrics();
-      loadPendingOrders();
+      await loadPendingOrders();
       loadUsersDirectory();
       loadAdminMethods();
       loadAdminCourses();
       loadAdminGlossary();
       loadRecoveryRequests();
+
+      // Poller automático en tiempo real cada 6 segundos para administradores
+      if (!window._adminOrdersPoller) {
+        window._adminOrdersPoller = setInterval(async () => {
+          try {
+            await loadPendingOrders(true);
+            await updateDashboardMetrics();
+          } catch (e) {}
+        }, 6000);
+      }
+      window.addEventListener('focus', () => {
+        document.title = 'Panel de Administración | Profitivo';
+      });
     });
 
     // Actualización de Métricas Globales Superiores
@@ -768,38 +792,113 @@
       });
     }
 
-    // 1. CARGA DE PAGOS PENDIENTES
-    async function loadPendingOrders() {
-      const orders = await window.ProfitivoAPI.getPendingOrders();
-      document.getElementById('pending-count').textContent = orders.length;
+    // Sistema de Alerta Sonora con Web Audio API (Sin dependencias externas)
+    function playNotificationSound() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
 
-      const tbody = document.getElementById('tbody-pending-orders');
-      if (orders.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">No hay pagos pendientes por revisar en este momento.</td></tr>`;
-        return;
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+        osc1.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(880, ctx.currentTime + 0.15);
+        osc2.frequency.exponentialRampToValueAtTime(1174.66, ctx.currentTime + 0.35); // D6
+
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc1.start(ctx.currentTime);
+        osc2.start(ctx.currentTime + 0.12);
+        osc1.stop(ctx.currentTime + 0.3);
+        osc2.stop(ctx.currentTime + 0.45);
+      } catch (e) {
+        console.warn("No se pudo reproducir sonido de alerta:", e);
       }
+    }
 
-      tbody.innerHTML = orders.map(o => `
-        <tr>
-          <td><small style="color: var(--text-muted);">${new Date(o.created_at).toLocaleDateString()}</small></td>
-          <td><strong>${o.user_name}</strong><br><small style="color: var(--green-neon);">${o.user_email}</small></td>
-          <td><span class="badge ${o.order_type === 'LIFETIME_MEMBERSHIP' ? 'badge-green' : 'badge-gold'}">${o.course_title}</span></td>
-          <td>${o.payment_method_title}</td>
-          <td><code style="background: #060B14; padding: 4px 6px; border-radius: 4px; color: #fff;">${o.reference_number}</code></td>
-          <td><strong>$${o.amount} ${o.currency}</strong></td>
-          <td>
-            <button class="btn btn-outline" style="padding: 4px 10px; font-size: 0.78rem;" onclick="viewReceipt('${o.receipt_file_url}')">
-              👁️ Ver Foto
-            </button>
-          </td>
-          <td>
-            <div style="display: flex; gap: 6px;">
-              <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="approveOrder('${o.id}')">✓ Aprobar</button>
-              <button class="btn btn-danger" style="padding: 6px 10px; font-size: 0.8rem;" onclick="rejectOrder('${o.id}')">✕ Rechazar</button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
+    let knownPendingOrderIds = null;
+
+    // 1. CARGA DE PAGOS PENDIENTES CON DETECCIÓN EN TIEMPO REAL
+    async function loadPendingOrders(isPoll = false) {
+      try {
+        const orders = await window.ProfitivoAPI.getPendingOrders(isPoll);
+        const currentIds = orders.map(o => o.id);
+
+        // Si ya habíamos cargado previamente y detectamos IDs nuevos -> ¡ALERTAR!
+        if (knownPendingOrderIds !== null) {
+          const newOrders = orders.filter(o => !knownPendingOrderIds.has(o.id));
+          if (newOrders.length > 0) {
+            playNotificationSound();
+            showToast(`🔔 ¡NUEVO PAGO POR REVISAR! Has recibido ${newOrders.length} comprobante(s) nuevo(s).`);
+            document.title = `(🔔 ${orders.length} Pagos) Panel de Administración | Profitivo`;
+          }
+        }
+        knownPendingOrderIds = new Set(currentIds);
+
+        // Actualizar contadores del panel
+        const pendingBadge = document.getElementById('pending-count');
+        if (pendingBadge) pendingBadge.textContent = orders.length;
+
+        const metricPending = document.getElementById('metric-pending-count');
+        if (metricPending) metricPending.textContent = orders.length;
+
+        // Banner de Alerta Visual
+        const bannerAlert = document.getElementById('banner-pending-alert');
+        const badgeAlertCount = document.getElementById('badge-alert-count');
+        if (bannerAlert) {
+          if (orders.length > 0) {
+            bannerAlert.style.display = 'flex';
+            if (badgeAlertCount) badgeAlertCount.textContent = `${orders.length} pendiente${orders.length > 1 ? 's' : ''}`;
+          } else {
+            bannerAlert.style.display = 'none';
+          }
+        }
+
+        const tbody = document.getElementById('tbody-pending-orders');
+        if (!tbody) return;
+
+        if (orders.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">No hay pagos pendientes por revisar en este momento.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = orders.map(o => `
+          <tr>
+            <td><small style="color: var(--text-muted);">${new Date(o.created_at).toLocaleDateString()}</small></td>
+            <td><strong>${o.user_name}</strong><br><small style="color: var(--green-neon);">${o.user_email}</small></td>
+            <td><span class="badge ${o.order_type === 'LIFETIME_MEMBERSHIP' ? 'badge-green' : 'badge-gold'}">${o.course_title}</span></td>
+            <td>${o.payment_method_title}</td>
+            <td><code style="background: #060B14; padding: 4px 6px; border-radius: 4px; color: #fff;">${o.reference_number}</code></td>
+            <td><strong>$${o.amount} ${o.currency}</strong></td>
+            <td>
+              <button class="btn btn-outline" style="padding: 4px 10px; font-size: 0.78rem;" onclick="viewReceipt('${o.receipt_file_url}')">
+                👁️ Ver Foto
+              </button>
+            </td>
+            <td>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="approveOrder('${o.id}')">✓ Aprobar</button>
+                <button class="btn btn-danger" style="padding: 6px 10px; font-size: 0.8rem;" onclick="rejectOrder('${o.id}')">✕ Rechazar</button>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error("Error al cargar pagos pendientes:", err);
+      }
     }
 
     function viewReceipt(url) {
@@ -815,11 +914,12 @@
     }
 
     async function approveOrder(id) {
-      if (!confirm("¿Deseas aprobar este pago y conceder membresía LIFETIME ACTIVA al estudiante de inmediato?")) return;
+      if (!confirm("¿Deseas aprobar este pago y conceder acceso al estudiante de inmediato?")) return;
       try {
         await window.ProfitivoAPI.approveOrder(id, currentAdmin);
-        showToast("¡Pago aprobado! Membresía LIFETIME ACTIVA concedida.");
-        loadPendingOrders();
+        showToast("¡Pago aprobado! Acceso concedido exitosamente.");
+        if (knownPendingOrderIds) knownPendingOrderIds.delete(id);
+        await loadPendingOrders(true);
         await updateDashboardMetrics();
         loadUsersDirectory();
       } catch (err) {
@@ -833,7 +933,8 @@
       try {
         await window.ProfitivoAPI.rejectOrder(id, reason, currentAdmin);
         showToast("Pago marcado como rechazado.");
-        loadPendingOrders();
+        if (knownPendingOrderIds) knownPendingOrderIds.delete(id);
+        await loadPendingOrders(true);
         await updateDashboardMetrics();
       } catch (err) {
         showToast(err.message, true);

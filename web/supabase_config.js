@@ -188,6 +188,51 @@ const ProfitivoCloudDB = {
           }
         });
       }
+    } else if (action === 'SAVE_ORDER') {
+      if (!this._cache.orders) this._cache.orders = [];
+      const idx = this._cache.orders.findIndex(o => o.id === payload.id);
+      if (idx !== -1) {
+        this._cache.orders[idx] = { ...this._cache.orders[idx], ...payload };
+      } else {
+        this._cache.orders.unshift(payload);
+      }
+      if (this._cache.orders.length > 300) this._cache.orders = this._cache.orders.slice(0, 300);
+    } else if (action === 'APPROVE_ORDER') {
+      if (!this._cache.orders) this._cache.orders = [];
+      const idx = this._cache.orders.findIndex(o => o.id === payload.order_id);
+      let order = null;
+      if (idx !== -1) {
+        this._cache.orders[idx].status = 'APPROVED';
+        this._cache.orders[idx].reviewed_by = payload.reviewed_by || 'Admin';
+        this._cache.orders[idx].reviewed_at = new Date().toISOString();
+        order = this._cache.orders[idx];
+      }
+      const userId = payload.user_id || (order ? order.user_id : null);
+      const courseId = payload.course_id || (order ? order.course_id : null);
+      const isLifetime = payload.is_lifetime || (order ? (order.order_type === 'LIFETIME_MEMBERSHIP' || !order.course_id) : false);
+
+      if (userId) {
+        if (isLifetime) {
+          if (!this._cache.lifetime_users) this._cache.lifetime_users = [];
+          if (!this._cache.lifetime_users.includes(userId)) this._cache.lifetime_users.push(userId);
+        }
+        if (courseId) {
+          if (!this._cache.user_access_map) this._cache.user_access_map = {};
+          if (!this._cache.user_access_map[userId]) this._cache.user_access_map[userId] = [];
+          if (!this._cache.user_access_map[userId].includes(courseId)) {
+            this._cache.user_access_map[userId].push(courseId);
+          }
+        }
+      }
+    } else if (action === 'REJECT_ORDER') {
+      if (!this._cache.orders) this._cache.orders = [];
+      const idx = this._cache.orders.findIndex(o => o.id === payload.order_id);
+      if (idx !== -1) {
+        this._cache.orders[idx].status = 'REJECTED';
+        this._cache.orders[idx].rejection_reason = payload.rejection_reason || '';
+        this._cache.orders[idx].reviewed_by = payload.reviewed_by || 'Admin';
+        this._cache.orders[idx].reviewed_at = new Date().toISOString();
+      }
     }
     this._lastUpdated = Date.now();
 
@@ -324,6 +369,51 @@ const ProfitivoCloudDB = {
                 }
               }
             });
+          }
+        } else if (action === 'SAVE_ORDER') {
+          if (!db.orders) db.orders = [];
+          const idx = db.orders.findIndex(o => o.id === payload.id);
+          if (idx !== -1) {
+            db.orders[idx] = { ...db.orders[idx], ...payload };
+          } else {
+            db.orders.unshift(payload);
+          }
+          if (db.orders.length > 300) db.orders = db.orders.slice(0, 300);
+        } else if (action === 'APPROVE_ORDER') {
+          if (!db.orders) db.orders = [];
+          const idx = db.orders.findIndex(o => o.id === payload.order_id);
+          let order = null;
+          if (idx !== -1) {
+            db.orders[idx].status = 'APPROVED';
+            db.orders[idx].reviewed_by = payload.reviewed_by || 'Admin';
+            db.orders[idx].reviewed_at = new Date().toISOString();
+            order = db.orders[idx];
+          }
+          const userId = payload.user_id || (order ? order.user_id : null);
+          const courseId = payload.course_id || (order ? order.course_id : null);
+          const isLifetime = payload.is_lifetime || (order ? (order.order_type === 'LIFETIME_MEMBERSHIP' || !order.course_id) : false);
+
+          if (userId) {
+            if (isLifetime) {
+              if (!db.lifetime_users) db.lifetime_users = [];
+              if (!db.lifetime_users.includes(userId)) db.lifetime_users.push(userId);
+            }
+            if (courseId) {
+              if (!db.user_access_map) db.user_access_map = {};
+              if (!db.user_access_map[userId]) db.user_access_map[userId] = [];
+              if (!db.user_access_map[userId].includes(courseId)) {
+                db.user_access_map[userId].push(courseId);
+              }
+            }
+          }
+        } else if (action === 'REJECT_ORDER') {
+          if (!db.orders) db.orders = [];
+          const idx = db.orders.findIndex(o => o.id === payload.order_id);
+          if (idx !== -1) {
+            db.orders[idx].status = 'REJECTED';
+            db.orders[idx].rejection_reason = payload.rejection_reason || '';
+            db.orders[idx].reviewed_by = payload.reviewed_by || 'Admin';
+            db.orders[idx].reviewed_at = new Date().toISOString();
           }
         }
 
@@ -934,11 +1024,20 @@ const ProfitivoAPI = {
       created_at: new Date().toISOString()
     };
 
+    // 100% Web: Persistir y sincronizar la orden en la nube mundial de Profitivo
+    try {
+      await ProfitivoCloudDB.dispatch('SAVE_ORDER', newOrder);
+    } catch (e) {
+      console.warn("Fallo guardado de orden en la nube:", e);
+    }
+
     if (isSupabaseConfigured()) {
-      await sbFetch('orders_transactions', {
-        method: 'POST',
-        body: JSON.stringify(newOrder)
-      });
+      try {
+        await sbFetch('orders_transactions', {
+          method: 'POST',
+          body: JSON.stringify(newOrder)
+        });
+      } catch (e) {}
     }
 
     const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
@@ -948,38 +1047,84 @@ const ProfitivoAPI = {
   },
 
   getMyOrders: async (userId) => {
-    if (isSupabaseConfigured()) {
-      const remote = await sbFetch(`orders_transactions?user_id=eq.${userId}&order=created_at.desc&select=*`);
-      if (remote) return remote;
+    // 1. Consultar base de datos en la nube
+    try {
+      const cloud = await ProfitivoCloudDB.fetchCloud();
+      if (cloud && Array.isArray(cloud.orders)) {
+        return cloud.orders.filter(o => o.user_id === userId);
+      }
+    } catch (e) {
+      console.warn("Fallo lectura de ordenes cloud:", e);
     }
+
+    if (isSupabaseConfigured()) {
+      try {
+        const remote = await sbFetch(`orders_transactions?user_id=eq.${userId}&order=created_at.desc&select=*`);
+        if (remote && Array.isArray(remote)) return remote;
+      } catch (e) {}
+    }
+
     const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
     return orders.filter(o => o.user_id === userId);
   },
 
   // Consulta y Aprobación de Pagos (Administradores & PAPUCHO)
-  getAllOrders: async () => {
-    if (isSupabaseConfigured()) {
-      const remote = await sbFetch('orders_transactions?order=created_at.desc&select=*');
-      if (remote && remote.length > 0) return remote;
+  getAllOrders: async (force = false) => {
+    try {
+      const cloud = await ProfitivoCloudDB.fetchCloud(force);
+      if (cloud && Array.isArray(cloud.orders)) {
+        return cloud.orders;
+      }
+    } catch (e) {
+      console.warn("Fallo lectura cloud getAllOrders:", e);
     }
+
+    if (isSupabaseConfigured()) {
+      try {
+        const remote = await sbFetch('orders_transactions?order=created_at.desc&select=*');
+        if (remote && Array.isArray(remote) && remote.length > 0) return remote;
+      } catch (e) {}
+    }
+
     return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
   },
 
-  getPendingOrders: async () => {
-    if (isSupabaseConfigured()) {
-      const remote = await sbFetch(`orders_transactions?status=eq.PENDING_REVIEW&order=created_at.desc&select=*`);
-      if (remote) return remote;
+  getPendingOrders: async (force = false) => {
+    try {
+      const cloud = await ProfitivoCloudDB.fetchCloud(force);
+      if (cloud && Array.isArray(cloud.orders)) {
+        return cloud.orders.filter(o => o.status === 'PENDING_REVIEW');
+      }
+    } catch (e) {
+      console.warn("Fallo lectura cloud getPendingOrders:", e);
     }
+
+    if (isSupabaseConfigured()) {
+      try {
+        const remote = await sbFetch(`orders_transactions?status=eq.PENDING_REVIEW&order=created_at.desc&select=*`);
+        if (remote && Array.isArray(remote)) return remote;
+      } catch (e) {}
+    }
+
     const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
     return orders.filter(o => o.status === 'PENDING_REVIEW');
   },
 
   approveOrder: async (orderId, adminUser) => {
-    // 1. Obtener la orden (de Supabase si existe o de localStorage)
+    // 1. Obtener la orden (de Cloud, Supabase o localStorage)
     let targetOrder = null;
-    if (isSupabaseConfigured()) {
-      const remoteOrders = await sbFetch(`orders_transactions?id=eq.${orderId}&select=*`);
-      if (remoteOrders && remoteOrders.length > 0) targetOrder = remoteOrders[0];
+    try {
+      const cloud = await ProfitivoCloudDB.fetchCloud();
+      if (cloud && Array.isArray(cloud.orders)) {
+        targetOrder = cloud.orders.find(o => o.id === orderId);
+      }
+    } catch (e) {}
+
+    if (!targetOrder && isSupabaseConfigured()) {
+      try {
+        const remoteOrders = await sbFetch(`orders_transactions?id=eq.${orderId}&select=*`);
+        if (remoteOrders && remoteOrders.length > 0) targetOrder = remoteOrders[0];
+      } catch (e) {}
     }
     const orders = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]');
     const orderIndex = orders.findIndex(o => o.id === orderId);
@@ -1081,10 +1226,34 @@ const ProfitivoAPI = {
       setSessionUser(cur);
     }
 
+    // 7. Sincronizar en la nube mundial 100% Web
+    try {
+      await ProfitivoCloudDB.dispatch('APPROVE_ORDER', {
+        order_id: orderId,
+        user_id: targetUserId,
+        course_id: targetOrder.course_id,
+        is_lifetime: isLifetime,
+        reviewed_by: adminUser ? adminUser.username : 'Admin'
+      });
+    } catch (e) {
+      console.warn("Fallo dispatch APPROVE_ORDER:", e);
+    }
+
     return targetOrder;
   },
 
   rejectOrder: async (orderId, reason, adminUser) => {
+    // Sincronizar rechazo en la nube mundial 100% Web
+    try {
+      await ProfitivoCloudDB.dispatch('REJECT_ORDER', {
+        order_id: orderId,
+        rejection_reason: reason,
+        reviewed_by: adminUser ? adminUser.username : 'Admin'
+      });
+    } catch (e) {
+      console.warn("Fallo dispatch REJECT_ORDER:", e);
+    }
+
     if (isSupabaseConfigured()) {
       await sbFetch(`orders_transactions?id=eq.${orderId}`, {
         method: 'PATCH',
@@ -1134,18 +1303,41 @@ const ProfitivoAPI = {
 
   getUserById: async (userId) => {
     const accessMap = await ProfitivoCloudDB.getUserAccessMap();
+    let cloud = null;
+    try {
+      cloud = await ProfitivoCloudDB.fetchCloud();
+    } catch (e) {}
+
+    const hasApprovedLifetimeInCloud = cloud && Array.isArray(cloud.orders) && cloud.orders.some(o => 
+      o.user_id === userId && 
+      (o.order_type === 'LIFETIME_MEMBERSHIP' || !o.course_id) && 
+      o.status === 'APPROVED'
+    );
+    const isLifetimeInList = cloud && Array.isArray(cloud.lifetime_users) && cloud.lifetime_users.includes(userId);
+
     if (isSupabaseConfigured()) {
       const remote = await sbFetch(`users?id=eq.${userId}&select=*`);
       if (remote && remote.length > 0) {
+        const u = remote[0];
+        const isLifetime = u.is_lifetime_active || hasApprovedLifetimeInCloud || isLifetimeInList;
         return {
-          ...remote[0],
-          unlocked_courses: accessMap[userId] || remote[0].unlocked_courses || []
+          ...u,
+          is_lifetime_active: !!isLifetime,
+          unlocked_courses: accessMap[userId] || u.unlocked_courses || []
         };
       }
     }
     const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || '[]');
     const u = users.find(x => x.id === userId) || null;
     if (u) {
+      if (hasApprovedLifetimeInCloud || isLifetimeInList) {
+        u.is_lifetime_active = true;
+        const uIdx = users.findIndex(x => x.id === userId);
+        if (uIdx !== -1) {
+          users[uIdx].is_lifetime_active = true;
+          localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
+        }
+      }
       u.unlocked_courses = accessMap[userId] || u.unlocked_courses || [];
     }
     return u;
