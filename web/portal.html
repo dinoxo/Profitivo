@@ -180,11 +180,12 @@
         <button onclick="closeModal('modal-player'); pauseVideo()" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
       </div>
 
-      <!-- Video Player -->
+      <!-- Video Player (Soporte Dual: CDN/MP4 y YouTube Shorts / Embed) -->
       <div style="position: relative; padding-bottom: 56.25%; height: 0; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 20px; border: 1px solid var(--border-subtle);">
-        <video id="course-video" controls style="position: absolute; top:0; left: 0; width: 100%; height: 100%;">
+        <video id="course-video" controls style="position: absolute; top:0; left: 0; width: 100%; height: 100%; display: none;">
           Tu navegador no soporta video HTML5.
         </video>
+        <iframe id="course-iframe" style="position: absolute; top:0; left: 0; width: 100%; height: 100%; border: none; display: none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
       </div>
 
       <!-- Pestaña de Glosario del Curso -->
@@ -330,11 +331,9 @@
 
     function closeModal(id) {
       document.getElementById(id).classList.remove('active');
-    }
-
-    function pauseVideo() {
-      const vid = document.getElementById('course-video');
-      vid.pause();
+      if (id === 'modal-player') {
+        pauseVideo();
+      }
     }
 
     // Inicializar Portal
@@ -370,7 +369,7 @@
       // Sincronizar cursos y accesos desde la nube mundial
       if (window.ProfitivoCloudDB) {
         try {
-          await window.ProfitivoCloudDB.fetchCloud();
+          await window.ProfitivoCloudDB.fetchCloud(true);
         } catch (e) {
           console.warn("Fallo sincronización nube portal:", e);
         }
@@ -453,7 +452,7 @@
       } else {
         document.getElementById('section-pending-membership').style.display = 'none';
         document.getElementById('section-active-membership').style.display = 'block';
-        await loadCourses();
+        await loadCourses(true);
       }
     }
 
@@ -534,16 +533,16 @@
     // Cargar Cursos para Miembros Activos
     let loadedCoursesCache = [];
 
-    async function loadCourses() {
+    async function loadCourses(force = false) {
       const loadingEl = document.getElementById('courses-loading');
-      if (loadingEl) loadingEl.style.display = 'block';
+      if (loadingEl && !loadedCoursesCache.length) loadingEl.style.display = 'block';
 
       const activeGrid = document.getElementById('grid-active-courses');
       const baseGrid = document.getElementById('grid-base-courses');
       const proGrid = document.getElementById('grid-pro-courses');
 
       try {
-        loadedCoursesCache = await window.ProfitivoAPI.getCourses();
+        loadedCoursesCache = await window.ProfitivoAPI.getCourses(force);
       } catch (err) {
         console.error("Error al obtener cursos:", err);
         loadedCoursesCache = [];
@@ -714,18 +713,51 @@
       openUnlockModal(c.id, c.title, c.price);
     }
 
+    function getYouTubeEmbedUrl(url) {
+      if (!url) return null;
+      const str = String(url).trim();
+      // Soporta youtube.com/watch?v=ID, youtu.be/ID, youtube.com/shorts/ID, youtube.com/embed/ID
+      const match = str.match(/(?:youtube\.com\/(?:watch\?.*v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
+      if (match && match[1]) {
+        return `https://www.youtube-nocookie.com/embed/${match[1]}?autoplay=1&rel=0`;
+      }
+      return null;
+    }
+
     // Abrir Reproductor y Cargar Glosario
     async function openPlayer(courseId, title, videoUrl) {
       document.getElementById('player-title').textContent = title;
       const vid = document.getElementById('course-video');
-      vid.src = videoUrl;
-      vid.load();
-      vid.play().catch(e => console.log("Autoplay bloqueado por el navegador:", e));
+      const iframe = document.getElementById('course-iframe');
 
-      // Cargar Glosario
-      const glossary = await window.ProfitivoAPI.getCourseGlossary(courseId);
+      const ytEmbed = getYouTubeEmbedUrl(videoUrl);
+      if (ytEmbed) {
+        if (vid) {
+          vid.pause();
+          vid.src = '';
+          vid.style.display = 'none';
+        }
+        if (iframe) {
+          iframe.src = ytEmbed;
+          iframe.style.display = 'block';
+        }
+      } else {
+        if (iframe) {
+          iframe.src = '';
+          iframe.style.display = 'none';
+        }
+        if (vid) {
+          vid.style.display = 'block';
+          vid.src = videoUrl || '';
+          vid.load();
+          vid.play().catch(e => console.log("Autoplay bloqueado por el navegador:", e));
+        }
+      }
+
+      // Cargar Glosario oficial en caliente
+      const glossary = await window.ProfitivoAPI.getCourseGlossary(courseId, true);
       const list = document.getElementById('player-glossary-list');
-      if (glossary.length === 0) {
+      if (!glossary || glossary.length === 0) {
         list.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;">No hay términos registrados aún para este curso.</p>`;
       } else {
         list.innerHTML = glossary.map(g => `
@@ -744,6 +776,12 @@
       if (vid) {
         vid.pause();
         vid.src = '';
+        vid.style.display = 'none';
+      }
+      const iframe = document.getElementById('course-iframe');
+      if (iframe) {
+        iframe.src = '';
+        iframe.style.display = 'none';
       }
     }
 

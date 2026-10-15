@@ -135,6 +135,13 @@ const ProfitivoCloudDB = {
     } else if (action === 'DELETE_COURSE') {
       if (this._cache.courses) this._cache.courses = this._cache.courses.filter(c => c.id !== payload.id);
       if (this._cache.glossary) this._cache.glossary = this._cache.glossary.filter(g => g.course_id !== payload.id);
+      if (this._cache.user_access_map && typeof this._cache.user_access_map === 'object') {
+        for (const uid in this._cache.user_access_map) {
+          if (Array.isArray(this._cache.user_access_map[uid])) {
+            this._cache.user_access_map[uid] = this._cache.user_access_map[uid].filter(id => id !== payload.id);
+          }
+        }
+      }
     } else if (action === 'SAVE_GLOSSARY') {
       if (!this._cache.glossary) this._cache.glossary = [];
       const idx = this._cache.glossary.findIndex(g => g.id === payload.id);
@@ -295,6 +302,13 @@ const ProfitivoCloudDB = {
         } else if (action === 'DELETE_COURSE') {
           db.courses = db.courses.filter(c => c.id !== payload.id);
           db.glossary = db.glossary.filter(g => g.course_id !== payload.id);
+          if (db.user_access_map && typeof db.user_access_map === 'object') {
+            for (const uid in db.user_access_map) {
+              if (Array.isArray(db.user_access_map[uid])) {
+                db.user_access_map[uid] = db.user_access_map[uid].filter(id => id !== payload.id);
+              }
+            }
+          }
         } else if (action === 'SAVE_GLOSSARY') {
           const idx = db.glossary.findIndex(g => g.id === payload.id);
           if (idx !== -1) db.glossary[idx] = { ...db.glossary[idx], ...payload };
@@ -482,30 +496,16 @@ const ProfitivoCloudDB = {
   },
 
   initWebCloud: async function() {
-    // Si la computadora aún tenía datos locales guardados previamente, enviarlos a la nube y eliminar todo del disco
+    // Limpiar cualquier residuo de cursos o glosarios del almacenamiento local del navegador
     try {
-      const oldCourses = JSON.parse(localStorage.getItem('profitivo_courses_db') || '[]');
-      const oldGlossary = JSON.parse(localStorage.getItem('profitivo_glossary_db') || '[]');
-      const oldCats = JSON.parse(localStorage.getItem('profitivo_course_categories') || '[]');
-      const oldAccess = JSON.parse(localStorage.getItem('profitivo_user_access_map') || '{}');
-
-      if (oldCourses.length > 0 || oldGlossary.length > 0 || oldCats.length > 0 || Object.keys(oldAccess).length > 0) {
-        await this.dispatch('MERGE_ALL', {
-          courses: oldCourses,
-          glossary: oldGlossary,
-          categories: oldCats,
-          user_access_map: oldAccess
-        });
-        // Limpiar el computador local: nada queda almacenado en disco
-        localStorage.removeItem('profitivo_courses_db');
-        localStorage.removeItem('profitivo_glossary_db');
-        localStorage.removeItem('profitivo_course_categories');
-        localStorage.removeItem('profitivo_user_access_map');
-      }
+      localStorage.removeItem('profitivo_courses_db');
+      localStorage.removeItem('profitivo_glossary_db');
+      localStorage.removeItem('profitivo_course_categories');
+      localStorage.removeItem('profitivo_user_access_map');
     } catch (e) {}
 
-    // Cargar los datos oficiales en memoria directamente desde la web
-    await this.fetchCloud();
+    // Cargar los cursos y datos oficiales en memoria directamente desde la nube web
+    await this.fetchCloud(true);
   },
 
   getUserAccessMap: async function() {
@@ -650,69 +650,9 @@ function initLocalDatabase() {
     localStorage.setItem(LOCAL_STORAGE_KEY_METHODS, JSON.stringify(defaultMethods));
   }
 
-  if (!localStorage.getItem(LOCAL_STORAGE_KEY_COURSES)) {
-    const defaultCourses = [
-      {
-        id: 'course-1',
-        title: 'Fundamentos de Criptoeconomía y Blockchain',
-        slug: 'fundamentos-criptoeconomia',
-        category: 'CRYPTO',
-        description: 'Domina los conceptos de Bitcoin, Ethereum, smart contracts y seguridad sin rodeos.',
-        price: 0.00,
-        is_included_in_lifetime: true,
-        thumbnail_url: 'logo.png',
-        is_published: true,
-        video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
-      },
-      {
-        id: 'course-2',
-        title: 'Análisis Técnico y Lectura de Velas Japonesas',
-        slug: 'analisis-tecnico-velas',
-        category: 'TRADING',
-        description: 'Identifica tendencias alcistas, soportes y resistencias con precisión quirúrgica.',
-        price: 0.00,
-        is_included_in_lifetime: true,
-        thumbnail_url: 'logo.png',
-        is_published: true,
-        video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'
-      },
-      {
-        id: 'course-3',
-        title: 'Diseño UX/UI para Plataformas Fintech & Web3',
-        slug: 'ux-ui-fintech-web3',
-        category: 'TECH_UX',
-        description: 'Construye interfaces digitales que transmitan confianza, solidez y alta usabilidad.',
-        price: 0.00,
-        is_included_in_lifetime: true,
-        thumbnail_url: 'logo.png',
-        is_published: true,
-        video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
-      },
-      {
-        id: 'course-4',
-        title: 'Estrategias Avanzadas de Scalping y Futuros',
-        slug: 'scalping-avanzado-futuros',
-        category: 'TRADING',
-        description: 'Curso Especializado de alta rentabilidad con gestión de riesgo institucional. Requiere desbloqueo.',
-        price: 50.00,
-        is_included_in_lifetime: false, // Desbloqueable por pago individual
-        thumbnail_url: 'logo.png',
-        is_published: true,
-        video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4'
-      }
-    ];
-    localStorage.setItem(LOCAL_STORAGE_KEY_COURSES, JSON.stringify(defaultCourses));
-  }
-
-  if (!localStorage.getItem(LOCAL_STORAGE_KEY_GLOSSARY)) {
-    const defaultGlossary = [
-      { id: 'g-1', course_id: 'course-1', term: 'Blockchain', definition: 'Libro contable inmutable y descentralizado distribuido en miles de nodos.' },
-      { id: 'g-2', course_id: 'course-1', term: 'Smart Contract', definition: 'Programa informático que se autoejecuta en la blockchain cuando se cumplen las condiciones acordadas.' },
-      { id: 'g-3', course_id: 'course-2', term: 'Vela Alcista (Bullish)', definition: 'Vela donde el precio de cierre es mayor al precio de apertura, representada habitualmente en color verde.' },
-      { id: 'g-4', course_id: 'course-2', term: 'Soporte', definition: 'Nivel de precio en el gráfico donde la demanda es lo suficientemente fuerte como para frenar una caída.' }
-    ];
-    localStorage.setItem(LOCAL_STORAGE_KEY_GLOSSARY, JSON.stringify(defaultGlossary));
-  }
+  // Asegurar que no existan cursos ni glosarios mock en el almacenamiento local
+  localStorage.removeItem(LOCAL_STORAGE_KEY_COURSES);
+  localStorage.removeItem(LOCAL_STORAGE_KEY_GLOSSARY);
 
   if (!localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ORDERS) || '[]').length === 0) {
     const initialOrders = [
@@ -1544,7 +1484,7 @@ const ProfitivoAPI = {
   },
 
   // Cursos 100% Web (Sin guardar nada en el computador local)
-  getCourses: async () => {
+  getCourses: async (force = false) => {
     let coursesList = [];
     if (isSupabaseConfigured()) {
       try {
@@ -1556,7 +1496,7 @@ const ProfitivoAPI = {
     }
 
     if (!coursesList || coursesList.length === 0) {
-      const cloud = await ProfitivoCloudDB.fetchCloud();
+      const cloud = await ProfitivoCloudDB.fetchCloud(force);
       coursesList = (cloud && Array.isArray(cloud.courses)) ? cloud.courses : [];
     }
 
@@ -1706,21 +1646,25 @@ const ProfitivoAPI = {
   },
 
   // Glosario Completo 100% Web
-  getAllGlossary: async () => {
+  getAllGlossary: async (force = false) => {
     if (isSupabaseConfigured()) {
-      const remote = await sbFetch('course_glossary?order=sort_order.asc&select=*');
-      if (remote && remote.length > 0) return remote;
+      try {
+        const remote = await sbFetch('course_glossary?order=sort_order.asc&select=*');
+        if (remote && remote.length > 0) return remote;
+      } catch (e) {}
     }
-    const cloud = await ProfitivoCloudDB.fetchCloud();
+    const cloud = await ProfitivoCloudDB.fetchCloud(force);
     return (cloud && Array.isArray(cloud.glossary)) ? cloud.glossary : [];
   },
 
-  getCourseGlossary: async (courseId) => {
+  getCourseGlossary: async (courseId, force = false) => {
     if (isSupabaseConfigured()) {
-      const remote = await sbFetch(`course_glossary?course_id=eq.${courseId}&order=sort_order.asc&select=*`);
-      if (remote && remote.length > 0) return remote;
+      try {
+        const remote = await sbFetch(`course_glossary?course_id=eq.${courseId}&order=sort_order.asc&select=*`);
+        if (remote && remote.length > 0) return remote;
+      } catch (e) {}
     }
-    const all = await ProfitivoAPI.getAllGlossary();
+    const all = await ProfitivoAPI.getAllGlossary(force);
     return all.filter(g => g.course_id === courseId);
   },
 

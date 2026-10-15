@@ -158,6 +158,13 @@ function applyActionToDb(db, action, payload) {
     const courseId = sanitizeServerText(payload.id, 60);
     db.courses = db.courses.filter(c => c.id !== courseId);
     db.glossary = db.glossary.filter(g => g.course_id !== courseId);
+    if (db.user_access_map && typeof db.user_access_map === 'object') {
+      for (const uid in db.user_access_map) {
+        if (Array.isArray(db.user_access_map[uid])) {
+          db.user_access_map[uid] = db.user_access_map[uid].filter(id => id !== courseId);
+        }
+      }
+    }
   } else if (action === 'SAVE_GLOSSARY') {
     const term = {
       id: sanitizeServerText(payload.id, 60),
@@ -216,18 +223,25 @@ function applyActionToDb(db, action, payload) {
     db.user_access_map[user_id] = list;
   } else if (action === 'MERGE_ALL') {
     const { courses, glossary, categories, user_access_map } = payload;
+    const mockCourseIds = ['course-1', 'course-2', 'course-3', 'course-4'];
+    const mockGlossaryIds = ['g-1', 'g-2', 'g-3', 'g-4'];
+
     if (Array.isArray(courses)) {
       courses.forEach(lc => {
-        const idx = db.courses.findIndex(c => c.id === lc.id);
-        if (idx !== -1) db.courses[idx] = { ...db.courses[idx], ...lc };
-        else db.courses.push(lc);
+        if (lc && lc.id && !mockCourseIds.includes(lc.id)) {
+          const idx = db.courses.findIndex(c => c.id === lc.id);
+          if (idx !== -1) db.courses[idx] = { ...db.courses[idx], ...lc };
+          else db.courses.push(lc);
+        }
       });
     }
     if (Array.isArray(glossary)) {
       glossary.forEach(lg => {
-        const idx = db.glossary.findIndex(g => g.id === lg.id);
-        if (idx !== -1) db.glossary[idx] = { ...db.glossary[idx], ...lg };
-        else db.glossary.push(lg);
+        if (lg && lg.id && !mockGlossaryIds.includes(lg.id) && !mockCourseIds.includes(lg.course_id)) {
+          const idx = db.glossary.findIndex(g => g.id === lg.id);
+          if (idx !== -1) db.glossary[idx] = { ...db.glossary[idx], ...lg };
+          else db.glossary.push(lg);
+        }
       });
     }
     if (Array.isArray(categories)) {

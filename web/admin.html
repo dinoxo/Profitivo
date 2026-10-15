@@ -823,6 +823,16 @@
         document.getElementById(`tab-${t}`).style.display = (t === tab) ? 'block' : 'none';
         document.getElementById(`btn-tab-${t}`).className = (t === tab) ? 'btn btn-primary' : 'btn btn-outline';
       });
+
+      if (tab === 'cursos') {
+        window.ProfitivoAPI.getCourses(true).then(courses => {
+          allCoursesCache = courses;
+          loadAdminCourses();
+          loadAdminGlossary(true);
+        }).catch(console.warn);
+      } else if (tab === 'usuarios') {
+        loadUsersDirectory();
+      }
     }
 
     // Sistema de Alerta Sonora con Web Audio API (Sin dependencias externas)
@@ -1804,9 +1814,9 @@
       try {
         const savedCourse = await window.ProfitivoAPI.saveCourse(courseData, videoFile);
 
-        allCoursesCache = await window.ProfitivoAPI.getCourses();
+        allCoursesCache = await window.ProfitivoAPI.getCourses(true);
         loadAdminCourses();
-        loadAdminGlossary();
+        loadAdminGlossary(true);
         loadUsersDirectory();
         closeModal('modal-add-course');
         showToast(courseId ? "¡Curso actualizado con éxito!" : "¡Curso publicado con éxito! Ya está disponible en el portal.");
@@ -1823,9 +1833,9 @@
       if (!confirm(`¿Estás seguro de eliminar el curso "${title}"? Esta acción no se puede deshacer.`)) return;
       try {
         await window.ProfitivoAPI.deleteCourse(courseId);
-        allCoursesCache = await window.ProfitivoAPI.getCourses();
+        allCoursesCache = await window.ProfitivoAPI.getCourses(true);
         loadAdminCourses();
-        loadAdminGlossary();
+        loadAdminGlossary(true);
         loadUsersDirectory();
         showToast("Curso eliminado correctamente.");
       } catch (err) {
@@ -1834,8 +1844,8 @@
     }
 
     // 5. GLOSARIO DE CONCEPTOS
-    async function loadAdminGlossary() {
-      allGlossaryCache = await window.ProfitivoAPI.getAllGlossary();
+    async function loadAdminGlossary(force = false) {
+      allGlossaryCache = await window.ProfitivoAPI.getAllGlossary(force);
       const tbody = document.getElementById('tbody-admin-glossary');
       if (allGlossaryCache.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay términos en el glosario registrados. Haz clic en '+ Agregar Término Glosario'.</td></tr>`;
@@ -1895,7 +1905,7 @@
         await window.ProfitivoAPI.saveGlossaryTerm(termData);
         showToast(glossaryId ? "Término del glosario actualizado con éxito." : "Término añadido al glosario con éxito.");
         closeModal('modal-add-glossary');
-        loadAdminGlossary();
+        loadAdminGlossary(true);
       } catch (err) {
         showToast(err.message, true);
       }
@@ -1906,7 +1916,7 @@
       try {
         await window.ProfitivoAPI.deleteGlossaryTerm(id);
         showToast("Término eliminado del glosario.");
-        loadAdminGlossary();
+        loadAdminGlossary(true);
       } catch (err) {
         showToast(err.message, true);
       }
