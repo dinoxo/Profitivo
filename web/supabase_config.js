@@ -54,9 +54,31 @@ const ProfitivoCloudDB = {
   _cache: null,
   _lastUpdated: 0,
 
+  _initCache: function() {
+    if (this._cache) return this._cache;
+    try {
+      const saved = localStorage.getItem('profitivo_cloud_cache_fast');
+      if (saved) {
+        this._cache = JSON.parse(saved);
+        this._lastUpdated = parseInt(localStorage.getItem('profitivo_cloud_cache_time') || '0', 10);
+      }
+    } catch (e) {}
+    return this._cache;
+  },
+
+  _saveLocalCache: function(data) {
+    if (!data) return;
+    try {
+      localStorage.setItem('profitivo_cloud_cache_fast', JSON.stringify(data));
+      localStorage.setItem('profitivo_cloud_cache_time', String(Date.now()));
+    } catch (e) {}
+  },
+
   fetchCloud: async function(force = false) {
-    // Si tenemos datos en caché actualizados hace menos de 3.5 segundos, usarlos directamente para no sufrir condiciones de carrera
-    if (!force && this._cache && (Date.now() - this._lastUpdated < 3500)) {
+    this._initCache();
+
+    // Stale-While-Revalidate: Si tenemos datos en caché actualizados hace menos de 5 segundos y no es force, retornar de inmediato
+    if (!force && this._cache && (Date.now() - this._lastUpdated < 5000)) {
       return this._cache;
     }
 
@@ -72,6 +94,7 @@ const ProfitivoCloudDB = {
           if (json.success && json.data) {
             this._cache = json.data;
             this._lastUpdated = Date.now();
+            this._saveLocalCache(this._cache);
             return json.data;
           }
         }
@@ -93,6 +116,7 @@ const ProfitivoCloudDB = {
         const data = JSON.parse(decoded);
         this._cache = data;
         this._lastUpdated = Date.now();
+        this._saveLocalCache(this._cache);
         return data;
       }
     } catch (err) {
@@ -287,6 +311,7 @@ const ProfitivoCloudDB = {
       }
     }
     this._lastUpdated = Date.now();
+    this._saveLocalCache(this._cache);
 
     // 2. Persistir en la nube web a través de Cloudflare Pages Function oficial
     try {
@@ -300,6 +325,7 @@ const ProfitivoCloudDB = {
         if (json.success && json.data) {
           this._cache = json.data;
           this._lastUpdated = Date.now();
+          this._saveLocalCache(this._cache);
           return json.data;
         }
       }
@@ -747,8 +773,9 @@ function initLocalDatabase() {
   }
 }
 
-// Inicializar base de datos local de inmediato
+// Inicializar base de datos local y memoria cloud de inmediato
 initLocalDatabase();
+ProfitivoCloudDB._initCache();
 
 // ==============================================================================
 // 3. GESTIÓN DE SESIÓN DE USUARIO

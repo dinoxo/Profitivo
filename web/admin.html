@@ -756,6 +756,7 @@
   <script src="sanitizer.js"></script>
   <script src="image_optimization.js"></script>
   <script src="supabase_config.js"></script>
+  <script src="loading_overlay.js"></script>
 
   <script>
     let currentAdmin = null;
@@ -1014,14 +1015,17 @@
 
     async function approveOrder(id) {
       if (!confirm("¿Deseas aprobar este pago y conceder acceso al estudiante de inmediato?")) return;
+      if (window.ProfitivoUI) window.ProfitivoUI.showLoading("Aprobando Pago", "Concediendo acceso al estudiante y actualizando órdenes...");
       try {
         await window.ProfitivoAPI.approveOrder(id, currentAdmin);
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast("¡Pago aprobado! Acceso concedido exitosamente.");
         if (knownPendingOrderIds) knownPendingOrderIds.delete(id);
         await loadPendingOrders(true);
         await updateDashboardMetrics();
         loadUsersDirectory();
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
       }
     }
@@ -1029,13 +1033,16 @@
     async function rejectOrder(id) {
       const reason = prompt("Indica el motivo del rechazo del comprobante (ej: Referencia no encontrada):");
       if (!reason) return;
+      if (window.ProfitivoUI) window.ProfitivoUI.showLoading("Rechazando Pago", "Notificando rechazo y actualizando estado de la orden...");
       try {
         await window.ProfitivoAPI.rejectOrder(id, reason, currentAdmin);
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast("Pago marcado como rechazado.");
         if (knownPendingOrderIds) knownPendingOrderIds.delete(id);
         await loadPendingOrders(true);
         await updateDashboardMetrics();
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
       }
     }
@@ -1348,23 +1355,30 @@
         submitBtn.textContent = "⏳ Guardando...";
       }
 
+      if (window.ProfitivoUI) {
+        window.ProfitivoUI.showLoading("Guardando Método de Pago", "Sincronizando información de pagos en la base de datos...");
+      }
+
       const methodId = document.getElementById('method-id').value;
+      const S = window.ProfitivoSanitizer;
       const data = {
-        title: document.getElementById('method-title').value.trim(),
+        title: S ? S.cleanText(document.getElementById('method-title').value, 100) : document.getElementById('method-title').value.trim(),
         method_type: document.getElementById('method-type').value,
-        currency: document.getElementById('method-currency').value.trim(),
-        account_identifier: document.getElementById('method-identifier').value.trim(),
-        instructions: document.getElementById('method-instructions').value.trim(),
+        currency: S ? S.cleanText(document.getElementById('method-currency').value, 20) : document.getElementById('method-currency').value.trim(),
+        account_identifier: S ? S.cleanText(document.getElementById('method-identifier').value, 200) : document.getElementById('method-identifier').value.trim(),
+        instructions: S ? S.cleanText(document.getElementById('method-instructions').value, 500) : document.getElementById('method-instructions').value.trim(),
         qr_image_url: 'logo.png'
       };
       if (methodId) data.id = methodId;
 
       try {
         await window.ProfitivoAPI.savePaymentMethod(data);
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(methodId ? "Método de pago actualizado correctamente." : "Método de pago guardado.");
         closeModal('modal-add-method');
         await loadAdminMethods(true);
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
       } finally {
         if (submitBtn) {
@@ -1474,14 +1488,17 @@
         return;
       }
 
+      if (window.ProfitivoUI) window.ProfitivoUI.showLoading("Guardando Precio", "Actualizando precio oficial de membresía...");
       try {
         await window.ProfitivoAPI.savePlatformSettings({
           membership_price: cleanVal,
           currency: 'USDT'
         });
         platformSettingsCache.membership_price = cleanVal;
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(`✓ Precio de membresía guardado en $${cleanVal.toFixed(2)} USDT.`);
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
       }
     }
@@ -1495,6 +1512,7 @@
       const isBase = typeSelect.value === 'base';
       const priceVal = isBase ? 0 : Math.max(0, parseFloat(priceInput.value) || 0);
 
+      if (window.ProfitivoUI) window.ProfitivoUI.showLoading("Guardando Precio", "Actualizando precio del curso...");
       try {
         await window.ProfitivoAPI.updateCoursePrice(courseId, priceVal, isBase);
         
@@ -1507,8 +1525,10 @@
         
         loadAdminCourses();
         renderPricingModalCourses();
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(`✓ Precio del curso actualizado: ${isBase ? 'Incluido en Membresía ($0)' : '$' + priceVal.toFixed(2) + ' USDT'}`);
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
       }
     }
@@ -1533,6 +1553,7 @@
 
       const memVal = parseFloat(document.getElementById('pricing-membership-val').value) || 50;
 
+      if (window.ProfitivoUI) window.ProfitivoUI.showLoading("Guardando Precios", "Actualizando todos los precios de membresía y cursos en la nube...");
       try {
         await window.ProfitivoAPI.batchUpdatePrices(
           { membership_price: memVal, currency: 'USDT' },
@@ -1551,8 +1572,10 @@
 
         loadAdminCourses();
         renderPricingModalCourses();
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast("✓ Todos los precios de membresía y cursos han sido guardados con éxito.");
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
       }
     }
@@ -1667,20 +1690,24 @@
     async function handleCreateCategory(e) {
       e.preventDefault();
       const input = document.getElementById('new-category-name');
-      const name = input.value.trim();
+      const S = window.ProfitivoSanitizer;
+      const name = S ? S.cleanText(input.value, 80) : input.value.trim();
       if (!name) return;
 
       const submitBtn = e.target.querySelector('button[type="submit"]');
       if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "⏳ Creando..."; }
+      if (window.ProfitivoUI) window.ProfitivoUI.showLoading("Creando Categoría", "Registrando nueva categoría de cursos...");
 
       try {
         await window.ProfitivoAPI.saveCategory({ name });
         input.value = '';
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast("¡Categoría creada con éxito!");
         await renderCategoriesList();
         await loadCategoriesIntoSelect();
         loadAdminCourses();
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
       } finally {
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "+ Crear Categoría"; }
@@ -1690,7 +1717,8 @@
     async function handleUpdateCategory(catId, btnEl) {
       const input = document.getElementById(`cat-name-${catId}`);
       if (!input) return;
-      const newName = input.value.trim();
+      const S = window.ProfitivoSanitizer;
+      const newName = S ? S.cleanText(input.value, 80) : input.value.trim();
       if (!newName) {
         showToast("El nombre de la categoría no puede estar vacío.", true);
         return;
@@ -1701,15 +1729,18 @@
         btnEl.disabled = true;
         btnEl.textContent = "⏳ Guardando...";
       }
+      if (window.ProfitivoUI) window.ProfitivoUI.showLoading("Actualizando Categoría", "Guardando cambios de categoría...");
 
       try {
-        await window.ProfitivoAPI.saveCategory({ id: catId, name: newName });
-        showToast("¡Categoría actualizada con éxito!");
-        await renderCategoriesList();
+        await window.ProfitivoAPI.updateCategory(catId, { name: newName });
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
+        showToast("✓ Categoría actualizada.");
         await loadCategoriesIntoSelect();
         loadAdminCourses();
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
+      } finally {
         if (btnEl) {
           btnEl.disabled = false;
           btnEl.textContent = origText;
@@ -1838,16 +1869,17 @@
       const courseId = document.getElementById('course-id').value;
       const btn = document.getElementById('btn-save-course');
       const statusDiv = document.getElementById('course-upload-status');
+      const S = window.ProfitivoSanitizer;
       
-      const mainVideoTitle = document.getElementById('course-main-video-title').value.trim() || 'Video de Bienvenida';
+      const mainVideoTitle = (S ? S.cleanText(document.getElementById('course-main-video-title').value, 150) : document.getElementById('course-main-video-title').value.trim()) || 'Video de Bienvenida';
       const videoFileInput = document.getElementById('course-video-file');
       const videoFile = videoFileInput.files[0];
-      const videoUrl = document.getElementById('course-video-url').value.trim();
+      const videoUrl = S ? S.cleanUrl(document.getElementById('course-video-url').value) : document.getElementById('course-video-url').value.trim();
 
-      const docName = document.getElementById('course-doc-name').value.trim();
+      const docName = S ? S.cleanText(document.getElementById('course-doc-name').value, 150) : document.getElementById('course-doc-name').value.trim();
       const docFileInput = document.getElementById('course-doc-file');
       const docFile = docFileInput ? docFileInput.files[0] : null;
-      const docUrl = document.getElementById('course-doc-url').value.trim();
+      const docUrl = S ? S.cleanUrl(document.getElementById('course-doc-url').value) : document.getElementById('course-doc-url').value.trim();
 
       const extraRows = document.querySelectorAll('#course-extra-videos-container .extra-video-row');
       const extraVideosData = [];
@@ -1858,8 +1890,10 @@
         const urlInput = row.querySelector('.extra-vid-url');
         const fileInput = row.querySelector('.extra-vid-file');
         const file = (fileInput && fileInput.files[0]) ? fileInput.files[0] : null;
-        const u = urlInput ? urlInput.value.trim() : '';
-        const t = titleInput ? titleInput.value.trim() : (`Clase ${idx + 1}`);
+        const rawU = urlInput ? urlInput.value.trim() : '';
+        const rawT = titleInput ? titleInput.value.trim() : (`Clase ${idx + 1}`);
+        const u = S ? S.cleanUrl(rawU) : rawU;
+        const t = S ? S.cleanText(rawT, 150) : rawT;
 
         if (file || u) {
           extraVideosData.push({
@@ -1884,13 +1918,26 @@
         : "⏳ Procesando curso...";
       statusDiv.style.display = 'block';
 
+      if (window.ProfitivoUI) {
+        window.ProfitivoUI.showLoading(
+          totalFilesToUpload > 0 ? "Subiendo Videos y Material" : "Guardando Curso",
+          totalFilesToUpload > 0 
+            ? `Transfiriendo ${totalFilesToUpload} archivo(s) de video y diapositivas al CDN en alta resolución... Por favor no cierres esta ventana.`
+            : "Sincronizando los datos del curso con la nube segura de Profitivo..."
+        );
+      }
+
       const isLifetime = document.getElementById('course-access-type').value === 'LIFETIME';
+      const rawTitle = document.getElementById('course-title').value;
+      const rawDesc = document.getElementById('course-description').value;
+      const rawPrice = document.getElementById('course-price').value;
+
       const courseData = {
-        title: document.getElementById('course-title').value.trim(),
+        title: S ? S.cleanText(rawTitle, 150) : rawTitle.trim(),
         category: document.getElementById('course-category').value,
-        description: document.getElementById('course-description').value.trim(),
+        description: S ? S.cleanText(rawDesc, 1000) : rawDesc.trim(),
         is_included_in_lifetime: isLifetime,
-        price: isLifetime ? 0 : parseFloat(document.getElementById('course-price').value || 0),
+        price: isLifetime ? 0 : (S ? S.cleanAmount(rawPrice) : parseFloat(rawPrice || 0)),
         main_video_title: mainVideoTitle,
         video_url: videoUrl,
         document_name: docName || 'Material de Apoyo (PDF / PPT)',
@@ -1908,9 +1955,24 @@
         loadAdminCourses();
         loadAdminNews(true);
         loadUsersDirectory();
-        closeModal('modal-add-course');
-        showToast(courseId ? "¡Curso actualizado con éxito!" : "¡Curso publicado con éxito! Ya está disponible en el portal.");
+
+        if (window.ProfitivoUI) {
+          window.ProfitivoUI.showSuccessDialog(
+            "¡Subida Completada con Éxito!",
+            totalFilesToUpload > 0 
+              ? `Se han subido y procesado exitosamente los ${totalFilesToUpload} archivo(s) de video y diapositivas. El curso ya está publicado y disponible para los estudiantes.`
+              : "El curso y sus contenidos han sido actualizados en la plataforma correctamente.",
+            () => {
+              closeModal('modal-add-course');
+              document.getElementById('form-add-course').reset();
+            }
+          );
+        } else {
+          closeModal('modal-add-course');
+          showToast(courseId ? "¡Curso actualizado con éxito!" : "¡Curso publicado con éxito! Ya está disponible en el portal.");
+        }
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
       } finally {
         btn.disabled = false;
@@ -2023,27 +2085,34 @@
         submitBtn.textContent = "⏳ Guardando...";
       }
 
+      if (window.ProfitivoUI) {
+        window.ProfitivoUI.showLoading("Guardando Noticia", "Sincronizando información en Noticias & Tendencias Tecnológicas...");
+      }
+
       const newsId = document.getElementById('news-id').value;
       const catSelect = document.getElementById('news-category-select');
       const catId = catSelect.value;
       const selectedOption = catSelect.options[catSelect.selectedIndex];
       const catName = selectedOption ? selectedOption.text : 'Tecnología';
 
+      const S = window.ProfitivoSanitizer;
       const newsData = {
-        title: document.getElementById('news-title').value.trim(),
+        title: S ? S.cleanText(document.getElementById('news-title').value, 150) : document.getElementById('news-title').value.trim(),
         category_id: catId,
-        category_name: catName,
-        description: document.getElementById('news-description').value.trim(),
-        url: document.getElementById('news-url').value.trim()
+        category_name: S ? S.cleanText(catName, 80) : catName,
+        description: S ? S.cleanText(document.getElementById('news-description').value, 800) : document.getElementById('news-description').value.trim(),
+        url: S ? S.cleanUrl(document.getElementById('news-url').value) : document.getElementById('news-url').value.trim()
       };
       if (newsId) newsData.id = newsId;
 
       try {
         await window.ProfitivoAPI.saveNews(newsData);
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(newsId ? "Noticia actualizada con éxito." : "Noticia publicada con éxito en el portal.");
         closeModal('modal-add-news');
         await loadAdminNews(true);
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
       } finally {
         if (submitBtn) {

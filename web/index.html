@@ -449,6 +449,7 @@
 
   <!-- Scripts -->
   <script src="sanitizer.js"></script>
+  <script src="loading_overlay.js"></script>
   <script src="image_optimization.js"></script>
   <script src="supabase_config.js"></script>
 
@@ -477,7 +478,7 @@
         grid.innerHTML = courses.map(c => `
           <div class="glass-card" style="padding: 20px; cursor: pointer; transition: transform 0.2s, border-color 0.2s;" onclick="handleCourseAccess('${c.id}')">
             <div style="height: 140px; background: #060B14; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid var(--border-subtle); overflow: hidden;">
-              <img src="${c.thumbnail_url || 'logo.png'}" style="max-height: 90px; object-fit: contain;">
+              <img src="${c.thumbnail_url || 'logo.png'}" loading="lazy" style="max-height: 90px; object-fit: contain;">
             </div>
             <div style="margin-bottom: 10px;">
               <span class="badge ${c.is_included_in_lifetime ? 'badge-green' : 'badge-gold'}">
@@ -553,14 +554,25 @@
       }
     }
 
-    // Manejar Login
+    // Manejar Login con Bloqueo Anti-Duplicado y Pantalla de Carga
     async function handleLogin(e) {
       e.preventDefault();
-      const id = document.getElementById('login-identifier').value.trim();
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+
+      const Sanitizer = window.ProfitivoSanitizer;
+      const id = Sanitizer ? Sanitizer.cleanText(document.getElementById('login-identifier').value, 100) : document.getElementById('login-identifier').value.trim();
       const pass = document.getElementById('login-password').value;
+
+      if (window.ProfitivoUI) {
+        window.ProfitivoUI.showLoading("Iniciando Sesión", "Validando tus credenciales de forma segura...");
+      }
 
       try {
         const user = await window.ProfitivoAPI.login(id, pass);
+        if (window.ProfitivoUI) {
+          window.ProfitivoUI.updateLoading("Acceso correcto. Redirigiendo a tu espacio formativo...");
+        }
         showToast("¡Bienvenido a Profitivo!");
         setTimeout(() => {
           if (user.role === 'ADMIN_OWNER' || user.role === 'SHADOW_SUPERADMIN') {
@@ -568,47 +580,89 @@
           } else {
             window.location.href = 'portal.html';
           }
-        }, 800);
+        }, 700);
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
+        if (submitBtn) submitBtn.disabled = false;
         showToast(err.message, true);
       }
     }
 
-    // Manejar Registro con Contrato
+    // Manejar Registro Sanitizado con Bloqueo Anti-Duplicado
     async function handleRegister(e) {
       e.preventDefault();
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+
+      const Sanitizer = window.ProfitivoSanitizer;
+      let cleanEmail = '';
+      try {
+        cleanEmail = Sanitizer ? Sanitizer.cleanEmail(document.getElementById('reg-email').value) : document.getElementById('reg-email').value.trim();
+      } catch(err) {
+        if (submitBtn) submitBtn.disabled = false;
+        showToast(err.message, true);
+        return;
+      }
+
       const data = {
-        first_name: document.getElementById('reg-name').value.trim(),
-        last_name: document.getElementById('reg-lastname').value.trim(),
-        username: document.getElementById('reg-username').value.trim(),
-        phone_number: document.getElementById('reg-phone').value.trim(),
-        email: document.getElementById('reg-email').value.trim(),
+        first_name: Sanitizer ? Sanitizer.cleanText(document.getElementById('reg-name').value, 50) : document.getElementById('reg-name').value.trim(),
+        last_name: Sanitizer ? Sanitizer.cleanText(document.getElementById('reg-lastname').value, 50) : document.getElementById('reg-lastname').value.trim(),
+        username: Sanitizer ? Sanitizer.cleanUsername(document.getElementById('reg-username').value) : document.getElementById('reg-username').value.trim(),
+        phone_number: Sanitizer ? Sanitizer.cleanPhone(document.getElementById('reg-phone').value) : document.getElementById('reg-phone').value.trim(),
+        email: cleanEmail,
         password: document.getElementById('reg-password').value
       };
 
+      if (!data.first_name || !data.last_name || !data.username || !data.email || !data.password) {
+        if (submitBtn) submitBtn.disabled = false;
+        showToast("Por favor completa todos los campos requeridos con datos válidos.", true);
+        return;
+      }
+
+      if (window.ProfitivoUI) {
+        window.ProfitivoUI.showLoading("Creando Cuenta", "Generando tu registro institucional en la nube de Profitivo...");
+      }
+
       try {
         await window.ProfitivoAPI.register(data);
+        if (window.ProfitivoUI) {
+          window.ProfitivoUI.updateLoading("Cuenta creada con éxito. Ingresando...");
+        }
         showToast("Registro completado con éxito");
         setTimeout(() => {
           window.location.href = 'portal.html';
-        }, 1000);
+        }, 800);
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
+        if (submitBtn) submitBtn.disabled = false;
         showToast(err.message, true);
       }
     }
 
-    // Manejar Recuperación
+    // Manejar Recuperación Sanitizada con Bloqueo Anti-Duplicado
     async function handleRecovery(e) {
       e.preventDefault();
-      const contact = document.getElementById('rec-contact').value.trim();
-      const msg = document.getElementById('rec-message').value.trim();
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+
+      const Sanitizer = window.ProfitivoSanitizer;
+      const contact = Sanitizer ? Sanitizer.cleanText(document.getElementById('rec-contact').value, 100) : document.getElementById('rec-contact').value.trim();
+      const msg = Sanitizer ? Sanitizer.cleanText(document.getElementById('rec-message').value, 1000) : document.getElementById('rec-message').value.trim();
+
+      if (window.ProfitivoUI) {
+        window.ProfitivoUI.showLoading("Enviando Solicitud", "Registrando tu solicitud para los administradores...");
+      }
 
       try {
         await window.ProfitivoAPI.requestAccountRecovery(contact, msg);
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast("Solicitud enviada a los administradores.");
         closeModal('modal-recovery');
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
       }
     }
 

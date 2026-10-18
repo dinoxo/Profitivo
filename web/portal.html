@@ -354,6 +354,7 @@
   <script src="sanitizer.js"></script>
   <script src="image_optimization.js"></script>
   <script src="supabase_config.js"></script>
+  <script src="loading_overlay.js"></script>
 
   <script>
     let currentUser = null;
@@ -591,8 +592,18 @@
         submitBtn.innerHTML = '⏳ Enviando Comprobante... Por favor espera';
       }
 
+      if (window.ProfitivoUI) {
+        window.ProfitivoUI.showLoading("Enviando Comprobante de Membresía", "Procesando comprobante y notificando a los administradores de forma segura...");
+      }
+
       const fileInput = document.getElementById('rep-file');
       const file = fileInput.files[0];
+
+      // Sanitizar campos ingresados por el usuario
+      const S = window.ProfitivoSanitizer;
+      const refNumber = S ? S.cleanText(document.getElementById('rep-ref').value, 100) : document.getElementById('rep-ref').value.trim();
+      const notes = S ? S.cleanText(document.getElementById('rep-notes').value, 500) : document.getElementById('rep-notes').value.trim();
+      const methodTitle = S ? S.cleanText(document.getElementById('rep-method-select').value, 100) : document.getElementById('rep-method-select').value;
 
       // Obtener el precio oficial inmutable configurado por los administradores
       let officialAmount = 50.00;
@@ -610,19 +621,28 @@
         order_type: type,
         amount: officialAmount, // INMUTABLE: siempre el precio oficial de los administradores
         currency: 'USDT',
-        payment_method_title: document.getElementById('rep-method-select').value,
-        reference_number: document.getElementById('rep-ref').value.trim(),
-        user_notes: document.getElementById('rep-notes').value.trim()
+        payment_method_title: methodTitle,
+        reference_number: refNumber,
+        user_notes: notes
       };
 
       try {
         await window.ProfitivoAPI.reportPayment(reportData, file);
-        showToast("¡Comprobante enviado a revisión con éxito!");
+        if (window.ProfitivoUI) {
+          window.ProfitivoUI.showSuccessDialog(
+            "¡Comprobante Enviado con Éxito!",
+            "Tu reporte de pago de membresía ha sido enviado al equipo de administración para su verificación inmediata.",
+            () => { refreshUserState(); }
+          );
+        } else {
+          showToast("¡Comprobante enviado a revisión con éxito!");
+          setTimeout(() => refreshUserState(), 1200);
+        }
         if (submitBtn) {
           submitBtn.innerHTML = '✔ ¡Comprobante Enviado!';
         }
-        setTimeout(() => refreshUserState(), 1200);
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
         if (submitBtn) {
           submitBtn.disabled = false;
@@ -981,9 +1001,17 @@
         submitBtn.innerHTML = '⏳ Enviando Comprobante... Por favor espera';
       }
 
+      if (window.ProfitivoUI) {
+        window.ProfitivoUI.showLoading("Enviando Comprobante de Curso", "Procesando pago y registrando solicitud para desbloquear la clase...");
+      }
+
       const courseId = document.getElementById('unlock-course-id').value;
       const courseTitle = document.getElementById('unlock-course-name').value;
       const file = document.getElementById('unlock-file').files[0];
+
+      const S = window.ProfitivoSanitizer;
+      const refNumber = S ? S.cleanText(document.getElementById('unlock-ref').value, 100) : document.getElementById('unlock-ref').value.trim();
+      const methodTitle = S ? S.cleanText(document.getElementById('unlock-method-select').value, 100) : document.getElementById('unlock-method-select').value;
 
       // Obtener el precio oficial inmutable del curso directamente del catálogo oficial
       let officialPrice = 0;
@@ -1004,16 +1032,25 @@
         order_type: 'COURSE_UNLOCK',
         amount: officialPrice, // INMUTABLE: siempre el precio oficial de los administradores
         currency: 'USDT',
-        payment_method_title: document.getElementById('unlock-method-select').value,
-        reference_number: document.getElementById('unlock-ref').value.trim()
+        payment_method_title: methodTitle,
+        reference_number: refNumber
       };
 
       try {
         await window.ProfitivoAPI.reportPayment(reportData, file);
-        showToast("Comprobante del curso enviado a los administradores con éxito.");
         closeModal('modal-unlock-course');
         e.target.reset();
+        if (window.ProfitivoUI) {
+          window.ProfitivoUI.showSuccessDialog(
+            "¡Comprobante de Curso Enviado!",
+            "Tu comprobante para desbloquear este curso ha sido recibido y está pendiente de aprobación por los administradores.",
+            () => { refreshUserState(); }
+          );
+        } else {
+          showToast("Comprobante del curso enviado a los administradores con éxito.");
+        }
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
       } finally {
         if (submitBtn) {
@@ -1026,22 +1063,34 @@
     // Actualizar Perfil
     async function handleUpdateProfile(e) {
       e.preventDefault();
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+
+      const S = window.ProfitivoSanitizer;
       const updated = {
-        first_name: document.getElementById('prof-name').value.trim(),
-        last_name: document.getElementById('prof-lastname').value.trim(),
-        username: document.getElementById('prof-username').value.trim(),
-        phone_number: document.getElementById('prof-phone').value.trim(),
+        first_name: S ? S.cleanText(document.getElementById('prof-name').value, 50) : document.getElementById('prof-name').value.trim(),
+        last_name: S ? S.cleanText(document.getElementById('prof-lastname').value, 50) : document.getElementById('prof-lastname').value.trim(),
+        username: S ? S.cleanUsername(document.getElementById('prof-username').value) : document.getElementById('prof-username').value.trim(),
+        phone_number: S ? S.cleanPhone(document.getElementById('prof-phone').value) : document.getElementById('prof-phone').value.trim(),
         current_password: document.getElementById('prof-current-pass').value,
         new_password: document.getElementById('prof-new-pass').value
       };
 
+      if (window.ProfitivoUI) {
+        window.ProfitivoUI.showLoading("Guardando Perfil", "Actualizando los datos de tu cuenta en el sistema...");
+      }
+
       try {
         currentUser = await window.ProfitivoAPI.updateProfile(currentUser.id, updated);
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast("Perfil actualizado correctamente");
         closeModal('modal-profile');
         document.getElementById('user-badge').textContent = `Estudiante: @${currentUser.username}`;
       } catch (err) {
+        if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast(err.message, true);
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
       }
     }
 
