@@ -613,12 +613,20 @@
           <textarea id="course-description" class="form-textarea" rows="2" required placeholder="¿Qué aprenderá el estudiante en esta lección?"></textarea>
         </div>
 
-        <!-- Carga de Video -->
+        <!-- SECCIÓN 1: VIDEO PRINCIPAL / BIENVENIDA -->
         <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 16px; border-radius: 10px; margin-bottom: 16px;">
-          <h4 style="font-size: 0.95rem; color: var(--green-neon); margin-bottom: 8px;">🎬 Video de la Lección:</h4>
+          <h4 style="font-size: 0.95rem; color: var(--green-neon); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+            <span>🎬 Video Principal (Bienvenida / Introducción):</span>
+            <span class="badge badge-green" style="font-size: 0.7rem;">Principal</span>
+          </h4>
           
-          <div class="form-group" style="margin-bottom: 12px;">
-            <label class="form-label">Opción 1: Subir Archivo de Video desde tu Dispositivo (.mp4, .webm, .mov):</label>
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label">Título del Video Principal:</label>
+            <input type="text" id="course-main-video-title" class="form-input" placeholder="Ej: Video de Bienvenida y Fundamentos" value="Video de Bienvenida">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label">Opción 1: Subir Archivo de Video (.mp4, .webm, .mov):</label>
             <input type="file" id="course-video-file" class="form-input" accept="video/mp4,video/webm,video/ogg,video/quicktime">
           </div>
 
@@ -626,8 +634,53 @@
             <label class="form-label">Opción 2: O pegar Enlace directo del Video (URL):</label>
             <input type="url" id="course-video-url" class="form-input" placeholder="https://.../video.mp4">
           </div>
-          <div id="course-upload-status" style="margin-top: 8px; font-size: 0.82rem; color: var(--gold-prestige); display: none;">⏳ Procesando y subiendo video...</div>
         </div>
+
+        <!-- SECCIÓN 2: VIDEOS Y CLASES ADICIONALES (MÁS VIDEOS) -->
+        <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 16px; border-radius: 10px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h4 style="font-size: 0.95rem; color: #fff; margin: 0; display: flex; align-items: center; gap: 6px;">
+              <span>📹 Lecciones y Videos Adicionales:</span>
+            </h4>
+            <button type="button" class="btn btn-outline" onclick="addExtraVideoRow()" style="padding: 5px 12px; font-size: 0.78rem; border-color: var(--green-neon); color: var(--green-neon);">
+              ➕ Agregar más videos
+            </button>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">
+            Puedes agregar todas las clases o videos que desees. Se mostrarán ordenados debajo del video principal como en el boceto.
+          </p>
+          
+          <div id="course-extra-videos-container" style="display: flex; flex-direction: column; gap: 12px;">
+            <!-- Filas dinámicas de videos extras -->
+          </div>
+        </div>
+
+        <!-- SECCIÓN 3: MATERIAL DE APOYO / PRESENTACIÓN (POWERPOINT O PDF) -->
+        <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 16px; border-radius: 10px; margin-bottom: 16px;">
+          <h4 style="font-size: 0.95rem; color: #00E5FF; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+            <span>📑 Material de Apoyo (PowerPoint / PDF):</span>
+          </h4>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px;">
+            Sube el archivo en formato PowerPoint (.ppt, .pptx) o PDF (.pdf). Los alumnos podrán profundizar abriéndolo en una nueva pestaña sin cerrar la clase.
+          </p>
+
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label">Nombre o Título del Archivo:</label>
+            <input type="text" id="course-doc-name" class="form-input" placeholder="Ej: Diapositivas de la Clase y Resumen Ejecutivo">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 10px;">
+            <label class="form-label">Subir Archivo (.pdf, .ppt, .pptx):</label>
+            <input type="file" id="course-doc-file" class="form-input" accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation">
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">O pegar Enlace directo del Documento (URL):</label>
+            <input type="url" id="course-doc-url" class="form-input" placeholder="https://.../presentacion.pdf">
+          </div>
+        </div>
+
+        <div id="course-upload-status" style="margin-top: 8px; margin-bottom: 12px; font-size: 0.85rem; color: var(--gold-prestige); display: none; text-align: center; font-weight: bold;">⏳ Procesando y subiendo archivos al CDN...</div>
 
         <button type="submit" id="btn-save-course" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 10px;">
           🚀 Publicar Curso en Profitivo
@@ -1680,9 +1733,66 @@
       }
     }
 
+    // -------------------------------------------------------------
+    // GESTIÓN DINÁMICA DE VIDEOS ADICIONALES (MULTI-VIDEO)
+    // -------------------------------------------------------------
+    let extraVideoCounter = 0;
+
+    function addExtraVideoRow(data = {}) {
+      const container = document.getElementById('course-extra-videos-container');
+      if (!container) return;
+      extraVideoCounter++;
+      const rowId = 'extra-vid-row-' + extraVideoCounter;
+      const initialTitle = data.title || (`Lección ${container.children.length + 1}`);
+      const initialUrl = data.video_url || '';
+
+      const div = document.createElement('div');
+      div.id = rowId;
+      div.className = 'extra-video-row';
+      div.style.cssText = 'background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 12px; position: relative;';
+      
+      div.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 0.82rem; font-weight: bold; color: var(--gold-prestige);">📹 Video / Lección Adicional:</span>
+          <button type="button" onclick="removeExtraVideoRow('${rowId}')" class="btn btn-danger" style="padding: 2px 8px; font-size: 0.72rem;" title="Quitar este video">
+            ✖ Quitar
+          </button>
+        </div>
+        <div class="form-group" style="margin-bottom: 8px;">
+          <label class="form-label" style="font-size: 0.78rem;">Título del Video / Clase:</label>
+          <input type="text" class="form-input extra-vid-title" placeholder="Ej: Título del Video" value="${escapeHtmlAttr(initialTitle)}">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label class="form-label" style="font-size: 0.75rem;">Archivo (.mp4, .mov):</label>
+            <input type="file" class="form-input extra-vid-file" accept="video/mp4,video/webm,video/ogg,video/quicktime" style="font-size: 0.75rem; padding: 6px;">
+          </div>
+          <div>
+            <label class="form-label" style="font-size: 0.75rem;">O Enlace Directo (URL):</label>
+            <input type="url" class="form-input extra-vid-url" placeholder="https://..." value="${escapeHtmlAttr(initialUrl)}" style="font-size: 0.75rem; padding: 6px;">
+          </div>
+        </div>
+      `;
+      container.appendChild(div);
+    }
+
+    function removeExtraVideoRow(rowId) {
+      const row = document.getElementById(rowId);
+      if (row) row.remove();
+    }
+
+    function resetExtraVideoRows() {
+      const container = document.getElementById('course-extra-videos-container');
+      if (container) container.innerHTML = '';
+    }
+
     async function openAddCourseModal() {
       document.getElementById('form-add-course').reset();
       document.getElementById('course-id').value = '';
+      document.getElementById('course-main-video-title').value = 'Video de Bienvenida';
+      document.getElementById('course-doc-name').value = '';
+      document.getElementById('course-doc-url').value = '';
+      resetExtraVideoRows();
       document.getElementById('group-course-price').style.display = 'none';
       document.getElementById('course-upload-status').style.display = 'none';
       document.getElementById('modal-course-title').textContent = "📹 Publicar Nuevo Curso / Lección";
@@ -1702,7 +1812,16 @@
       toggleCoursePriceInput(c.is_included_in_lifetime ? 'LIFETIME' : 'SPECIALIZED');
       document.getElementById('course-price').value = c.price || 0;
       document.getElementById('course-description').value = c.description || '';
+      document.getElementById('course-main-video-title').value = c.main_video_title || 'Video de Bienvenida';
       document.getElementById('course-video-url').value = c.video_url || '';
+      document.getElementById('course-doc-name').value = c.document_name || '';
+      document.getElementById('course-doc-url').value = c.document_url || '';
+      
+      resetExtraVideoRows();
+      if (Array.isArray(c.extra_videos) && c.extra_videos.length > 0) {
+        c.extra_videos.forEach(ev => addExtraVideoRow(ev));
+      }
+
       document.getElementById('course-upload-status').style.display = 'none';
       document.getElementById('modal-course-title').textContent = "✏️ Editar Curso / Lección";
       document.getElementById('btn-save-course').textContent = "💾 Guardar Cambios del Curso";
@@ -1719,18 +1838,50 @@
       const courseId = document.getElementById('course-id').value;
       const btn = document.getElementById('btn-save-course');
       const statusDiv = document.getElementById('course-upload-status');
+      
+      const mainVideoTitle = document.getElementById('course-main-video-title').value.trim() || 'Video de Bienvenida';
       const videoFileInput = document.getElementById('course-video-file');
       const videoFile = videoFileInput.files[0];
       const videoUrl = document.getElementById('course-video-url').value.trim();
 
+      const docName = document.getElementById('course-doc-name').value.trim();
+      const docFileInput = document.getElementById('course-doc-file');
+      const docFile = docFileInput ? docFileInput.files[0] : null;
+      const docUrl = document.getElementById('course-doc-url').value.trim();
+
+      const extraRows = document.querySelectorAll('#course-extra-videos-container .extra-video-row');
+      const extraVideosData = [];
+      const extraVideoFiles = [];
+      
+      extraRows.forEach((row, idx) => {
+        const titleInput = row.querySelector('.extra-vid-title');
+        const urlInput = row.querySelector('.extra-vid-url');
+        const fileInput = row.querySelector('.extra-vid-file');
+        const file = (fileInput && fileInput.files[0]) ? fileInput.files[0] : null;
+        const u = urlInput ? urlInput.value.trim() : '';
+        const t = titleInput ? titleInput.value.trim() : (`Clase ${idx + 1}`);
+
+        if (file || u) {
+          extraVideosData.push({
+            id: 'extra-vid-' + (idx + 1),
+            title: t,
+            video_url: u
+          });
+          extraVideoFiles.push(file);
+        }
+      });
+
       if (!courseId && !videoFile && !videoUrl) {
-        showToast("Debes subir un archivo de video o ingresar una URL de video.", true);
+        showToast("Debes subir un archivo de video principal o ingresar una URL de video.", true);
         return;
       }
 
+      const totalFilesToUpload = (videoFile ? 1 : 0) + (docFile ? 1 : 0) + extraVideoFiles.filter(Boolean).length;
       btn.disabled = true;
-      btn.textContent = videoFile ? "⏳ Subiendo video a GitHub CDN..." : (courseId ? "⏳ Actualizando Curso..." : "⏳ Guardando Curso...");
-      statusDiv.textContent = videoFile ? "⏳ Subiendo archivo al CDN de la empresa (puneta29/profitivo-videos)... No cierres la ventana." : "⏳ Procesando curso...";
+      btn.textContent = totalFilesToUpload > 0 ? "⏳ Subiendo archivos al CDN..." : (courseId ? "⏳ Actualizando Curso..." : "⏳ Guardando Curso...");
+      statusDiv.textContent = totalFilesToUpload > 0 
+        ? `⏳ Subiendo ${totalFilesToUpload} archivo(s) al CDN de la empresa en alta calidad (GitHub/Cloudflare)... Por favor espera sin cerrar la ventana.`
+        : "⏳ Procesando curso...";
       statusDiv.style.display = 'block';
 
       const isLifetime = document.getElementById('course-access-type').value === 'LIFETIME';
@@ -1740,14 +1891,18 @@
         description: document.getElementById('course-description').value.trim(),
         is_included_in_lifetime: isLifetime,
         price: isLifetime ? 0 : parseFloat(document.getElementById('course-price').value || 0),
+        main_video_title: mainVideoTitle,
         video_url: videoUrl,
+        document_name: docName || 'Material de Apoyo (PDF / PPT)',
+        document_url: docUrl,
+        extra_videos: extraVideosData,
         created_by: currentAdmin ? currentAdmin.username : 'Admin',
         glossary_terms: []
       };
       if (courseId) courseData.id = courseId;
 
       try {
-        const savedCourse = await window.ProfitivoAPI.saveCourse(courseData, videoFile);
+        const savedCourse = await window.ProfitivoAPI.saveCourse(courseData, videoFile, docFile, extraVideoFiles);
 
         allCoursesCache = await window.ProfitivoAPI.getCourses(true);
         loadAdminCourses();

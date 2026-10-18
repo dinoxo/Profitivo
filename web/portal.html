@@ -171,27 +171,79 @@
   </main>
 
   <!-- ============================================================================== -->
-  <!-- MODAL REPRODUCTOR DE VIDEO & GLOSARIO -->
+  <!-- MODAL REPRODUCTOR DE VIDEO, LECCIONES & MATERIAL DE APOYO (ESTRUCTURA IMAGEN 3) -->
   <!-- ============================================================================== -->
-  <div class="modal-overlay" id="modal-player">
-    <div class="modal-content" style="max-width: 850px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h3 id="player-title" style="font-size: 1.35rem;">Reproduciendo Lección</h3>
-        <button onclick="closeModal('modal-player'); pauseVideo()" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+  <div class="modal-overlay" id="modal-player" onclick="if(event.target === this) { closeModal('modal-player'); pauseVideo(); }">
+    <div class="modal-content" style="max-width: 900px; max-height: 92vh; overflow-y: auto; padding: 24px; position: relative;" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 12px;">
+        <div>
+          <span class="badge badge-green" id="player-category-badge" style="margin-bottom: 4px; font-size: 0.72rem;">CURSO</span>
+          <h3 id="player-title" style="font-size: 1.35rem; color: #fff; margin: 0;">Reproduciendo Lección</h3>
+        </div>
+        <button onclick="closeModal('modal-player'); pauseVideo()" style="background: none; border: none; color: var(--text-muted); font-size: 1.6rem; cursor: pointer; padding: 4px 8px;" title="Cerrar reproductor">&times;</button>
       </div>
 
-      <!-- Video Player (Soporte Dual: CDN/MP4 y YouTube Shorts / Embed) -->
-      <div style="position: relative; padding-bottom: 56.25%; height: 0; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 20px; border: 1px solid var(--border-subtle);">
-        <video id="course-video" controls style="position: absolute; top:0; left: 0; width: 100%; height: 100%; display: none;">
-          Tu navegador no soporta video HTML5.
-        </video>
-        <iframe id="course-iframe" style="position: absolute; top:0; left: 0; width: 100%; height: 100%; border: none; display: none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      <!-- 1. VIDEO PRINCIPAL / ACTIVO (RECUADRO SUPERIOR SEGÚN BOCETO) -->
+      <div style="background: #060B14; border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 0 4px;">
+          <span id="player-active-lesson-badge" style="font-size: 0.92rem; font-weight: 700; color: var(--green-neon); display: flex; align-items: center; gap: 8px;">
+            <span>▶</span> <span id="player-active-lesson-title">Video Principal / Bienvenida</span>
+          </span>
+          <span class="badge badge-gold" style="font-size: 0.72rem; padding: 2px 8px;">Pantalla Activa</span>
+        </div>
+
+        <div style="position: relative; padding-bottom: 56.25%; height: 0; background: #000; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06);">
+          <video id="course-video" controls playsinline style="position: absolute; top:0; left: 0; width: 100%; height: 100%; display: none;">
+            Tu navegador no soporta video HTML5.
+          </video>
+          <iframe id="course-iframe" style="position: absolute; top:0; left: 0; width: 100%; height: 100%; border: none; display: none;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
       </div>
 
-      <!-- Pestaña de Glosario del Curso -->
-      <div style="background: #060B14; border: 1px solid var(--border-subtle); border-radius: 10px; padding: 18px;">
-        <h4 style="font-size: 1.05rem; margin-bottom: 12px; color: var(--green-neon);">📖 Glosario & Conceptos Clave de este Curso:</h4>
-        <div id="player-glossary-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 180px; overflow-y: auto;">
+      <!-- 2. RECUADROS DE VIDEOS ABAJO (COMO EN LA IMAGEN 3: Título 1, Título 2, Título 3) -->
+      <div id="player-lessons-section" style="margin-bottom: 22px;">
+        <h4 style="font-size: 0.95rem; color: #fff; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="display: flex; align-items: center; gap: 6px;">
+            <span>🎬</span> <span>Lecciones y Videos de este Curso:</span>
+          </span>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Haz clic en un video para reproducirlo</span>
+        </h4>
+        <div id="player-lessons-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px;">
+          <!-- Se llena dinámicamente con los recuadros de videos -->
+        </div>
+      </div>
+
+      <!-- 3. ARCHIVO SUBIDO: DESEAS PROFUNDIZAR ABRIR EL ARCHIVO [ WWW ... ] -->
+      <div id="player-document-box" style="display: none; background: linear-gradient(135deg, rgba(0, 230, 118, 0.08) 0%, rgba(6, 11, 20, 0.95) 100%); border: 1px solid var(--green-neon); border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 14px; flex: 1; min-width: 250px;">
+          <div style="width: 48px; height: 48px; border-radius: 10px; background: rgba(0, 230, 118, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; flex-shrink: 0; border: 1px solid rgba(0,230,118,0.3);">
+            📑
+          </div>
+          <div>
+            <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--green-neon); font-weight: bold; margin-bottom: 3px;">
+              Presentación y Material de Apoyo (PowerPoint / PDF)
+            </div>
+            <strong id="player-document-name" style="color: #fff; font-size: 0.98rem; display: block; margin-bottom: 2px;">
+              Diapositivas y Resumen de la Clase
+            </strong>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">
+              Documento oficial disponible en alta calidad
+            </span>
+          </div>
+        </div>
+
+        <a id="player-document-btn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="padding: 10px 20px; font-size: 0.9rem; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; box-shadow: 0 0 16px rgba(0,230,118,0.25);">
+          <span>¿Deseas profundizar? Abrir el archivo</span>
+          <span style="font-size: 1.1rem;">↗</span>
+        </a>
+      </div>
+
+      <!-- 4. Pestaña de Glosario del Curso (si existe) -->
+      <div id="player-glossary-container" style="background: #060B14; border: 1px solid var(--border-subtle); border-radius: 10px; padding: 16px;">
+        <h4 style="font-size: 0.95rem; margin-bottom: 10px; color: var(--green-neon); display: flex; align-items: center; gap: 6px;">
+          <span>📖</span> <span>Glosario &amp; Conceptos Clave de este Curso:</span>
+        </h4>
+        <div id="player-glossary-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 160px; overflow-y: auto;">
           <!-- Glosario se carga dinámicamente -->
         </div>
       </div>
@@ -758,10 +810,20 @@
       }
     }
 
+    function escapeHtmlAttr(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
     function playCourseById(courseId) {
       const c = loadedCoursesCache.find(x => x.id === courseId);
       if (!c) return;
-      openPlayer(c.id, c.title, c.video_url);
+      openPlayer(c);
     }
 
     function openUnlockModalById(courseId) {
@@ -773,7 +835,6 @@
     function getYouTubeEmbedUrl(url) {
       if (!url) return null;
       const str = String(url).trim();
-      // Soporta youtube.com/watch?v=ID, youtu.be/ID, youtube.com/shorts/ID, youtube.com/embed/ID
       const match = str.match(/(?:youtube\.com\/(?:watch\?.*v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
       if (match && match[1]) {
         return `https://www.youtube-nocookie.com/embed/${match[1]}?autoplay=1&rel=0`;
@@ -781,13 +842,33 @@
       return null;
     }
 
-    // Abrir Reproductor y Cargar Glosario
-    async function openPlayer(courseId, title, videoUrl) {
-      document.getElementById('player-title').textContent = title;
+    // Cambiar la lección activa en la pantalla superior (Imagen 3)
+    function switchActiveLesson(url, title, cardEl) {
+      const titleEl = document.getElementById('player-active-lesson-title');
+      if (titleEl) titleEl.textContent = title;
+
+      const allCards = document.querySelectorAll('#player-lessons-grid .lesson-card');
+      allCards.forEach(c => {
+        c.style.borderColor = 'var(--border-subtle)';
+        c.style.background = '#0B1322';
+        c.style.boxShadow = 'none';
+      });
+      if (cardEl) {
+        cardEl.style.borderColor = 'var(--green-neon)';
+        cardEl.style.background = 'rgba(0, 230, 118, 0.12)';
+        cardEl.style.boxShadow = '0 0 12px rgba(0, 230, 118, 0.25)';
+      }
+
       const vid = document.getElementById('course-video');
       const iframe = document.getElementById('course-iframe');
 
-      const ytEmbed = getYouTubeEmbedUrl(videoUrl);
+      if (!url) {
+        if (vid) { vid.pause(); vid.src = ''; vid.style.display = 'none'; }
+        if (iframe) { iframe.src = ''; iframe.style.display = 'none'; }
+        return;
+      }
+
+      const ytEmbed = getYouTubeEmbedUrl(url);
       if (ytEmbed) {
         if (vid) {
           vid.pause();
@@ -805,22 +886,114 @@
         }
         if (vid) {
           vid.style.display = 'block';
-          vid.src = videoUrl || '';
+          vid.src = url;
           vid.load();
-          vid.play().catch(e => console.log("Autoplay bloqueado por el navegador:", e));
+          vid.play().catch(e => console.log("Autoplay bloqueado:", e));
         }
       }
+    }
 
-      // Cargar Glosario oficial en caliente
-      const glossary = await window.ProfitivoAPI.getCourseGlossary(courseId, true);
-      const list = document.getElementById('player-glossary-list');
-      if (!glossary || glossary.length === 0) {
-        list.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;">No hay términos registrados aún para este curso.</p>`;
+    // Abrir Reproductor con estructura del curso (Imagen 3: Video superior, lecciones abajo, material de apoyo)
+    async function openPlayer(courseOrId, optTitle, optUrl) {
+      let course = null;
+      if (typeof courseOrId === 'object' && courseOrId !== null) {
+        course = courseOrId;
       } else {
+        course = (loadedCoursesCache || []).find(c => c.id === courseOrId) || {
+          id: courseOrId,
+          title: optTitle || 'Lección',
+          video_url: optUrl || '',
+          main_video_title: 'Video de Bienvenida',
+          extra_videos: [],
+          document_url: '',
+          document_name: ''
+        };
+      }
+
+      // 1. Título y categoría
+      document.getElementById('player-title').textContent = course.title || 'Curso Profitivo';
+      const catBadge = document.getElementById('player-category-badge');
+      if (catBadge) catBadge.textContent = course.category || 'CURSO OFICIAL';
+
+      // 2. Preparar catálogo de videos del curso
+      const allVideos = [];
+      const mainTitle = course.main_video_title || 'Video de Bienvenida';
+      if (course.video_url) {
+        allVideos.push({
+          id: 'main',
+          title: mainTitle,
+          video_url: course.video_url,
+          is_main: true
+        });
+      }
+
+      if (Array.isArray(course.extra_videos)) {
+        course.extra_videos.forEach((ev, idx) => {
+          if (ev && (ev.video_url || ev.url)) {
+            allVideos.push({
+              id: ev.id || ('extra-' + idx),
+              title: ev.title || (`Lección ${idx + 1}`),
+              video_url: ev.video_url || ev.url,
+              is_main: false
+            });
+          }
+        });
+      }
+
+      // 3. Renderizar los recuadros de videos abajo (Como en la Imagen 3)
+      const grid = document.getElementById('player-lessons-grid');
+      const section = document.getElementById('player-lessons-section');
+
+      if (allVideos.length > 0) {
+        section.style.display = 'block';
+        grid.innerHTML = allVideos.map((v, i) => `
+          <div class="glass-card lesson-card" data-video-index="${i}" onclick="switchActiveLesson('${v.video_url.replace(/'/g, "\\'")}', '${escapeHtmlAttr(v.title)}', this)" style="padding: 12px; cursor: pointer; text-align: center; border: 1px solid var(--border-subtle); background: #0B1322; border-radius: 10px; transition: all 0.2s ease;">
+            <div style="width: 100%; height: 75px; background: #060B14; border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.06); font-size: 1.7rem; color: var(--green-neon);">
+              ▶
+            </div>
+            <strong style="display: block; font-size: 0.85rem; color: #fff; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtmlAttr(v.title)}">
+              ${escapeHtmlAttr(v.title)}
+            </strong>
+            <span style="font-size: 0.72rem; color: var(--text-muted);">
+              ${v.is_main ? '★ Principal' : `Lección ${i}`}
+            </span>
+          </div>
+        `).join('');
+
+        // Activar el primer video por defecto
+        const firstCard = grid.querySelector('.lesson-card');
+        switchActiveLesson(allVideos[0].video_url, allVideos[0].title, firstCard);
+      } else {
+        section.style.display = 'none';
+        switchActiveLesson('', 'Sin video disponible', null);
+      }
+
+      // 4. Archivo Subido (PowerPoint / PDF) con botón "¿Deseas profundizar? Abrir el archivo"
+      const docBox = document.getElementById('player-document-box');
+      const docBtn = document.getElementById('player-document-btn');
+      const docNameEl = document.getElementById('player-document-name');
+
+      if (course.document_url && String(course.document_url).trim().length > 0) {
+        docBox.style.display = 'flex';
+        docBtn.href = course.document_url;
+        docNameEl.textContent = course.document_name || 'Diapositivas y Resumen de la Clase';
+      } else {
+        docBox.style.display = 'none';
+        docBtn.href = '#';
+      }
+
+      // 5. Cargar Glosario oficial
+      const glossary = await window.ProfitivoAPI.getCourseGlossary(course.id, true);
+      const list = document.getElementById('player-glossary-list');
+      const gContainer = document.getElementById('player-glossary-container');
+      if (!glossary || glossary.length === 0) {
+        if (gContainer) gContainer.style.display = 'none';
+      } else {
+        if (gContainer) gContainer.style.display = 'block';
         list.innerHTML = glossary.map(g => `
           <div style="background: #0B1322; padding: 10px 14px; border-radius: 8px; border-left: 3px solid var(--green-neon);">
-            <strong style="color: #fff; font-size: 0.9rem;">${g.term}:</strong>
-            <span style="color: var(--text-secondary); font-size: 0.85rem;"> ${g.definition}</span>
+            <strong style="color: #fff; font-size: 0.9rem;">${escapeHtmlAttr(g.term)}:</strong>
+            <span style="color: var(--text-secondary); font-size: 0.85rem;"> ${escapeHtmlAttr(g.definition)}</span>
           </div>
         `).join('');
       }

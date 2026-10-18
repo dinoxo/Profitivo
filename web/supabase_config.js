@@ -1562,31 +1562,36 @@ const ProfitivoAPI = {
       }
       return {
         ...c,
+        main_video_title: c.main_video_title || 'Video Principal / Bienvenida',
+        extra_videos: Array.isArray(c.extra_videos) ? c.extra_videos : [],
+        document_url: c.document_url || '',
+        document_name: c.document_name || 'Material de Apoyo (PDF / PPT)',
         price: priceNum,
         is_included_in_lifetime: isIncluded
       };
     });
   },
 
-  // Subida de Videos a GitHub CDN Oficial de la Empresa (puneta29/profitivo-videos)
-  uploadVideoToGitHub: async (videoFile) => {
-    const filename = videoFile.name || ('video_' + Date.now() + '.mp4');
+  // Subida de Archivos y Videos a GitHub CDN Oficial de la Empresa (puneta29/profitivo-videos)
+  uploadFileToGitHub: async (file) => {
+    if (!file) return '';
+    const filename = file.name || ('file_' + Date.now());
 
-    // 1. Intentar a través del proxy de Cloudflare Pages Function (GitHub Releases, hasta 2GB por video)
+    // 1. Intentar a través del proxy de Cloudflare Pages Function (GitHub Releases, hasta 2GB por archivo)
     try {
       const res = await fetch(`/api/upload-video?filename=${encodeURIComponent(filename)}`, {
         method: 'POST',
         headers: {
-          'Content-Type': videoFile.type || 'video/mp4'
+          'Content-Type': file.type || 'application/octet-stream'
         },
-        body: videoFile
+        body: file
       });
       if (res.ok) {
         const data = await res.json();
         if (data.video_url) return data.video_url;
       }
     } catch (e) {
-      console.warn("Proxy video upload error, intentando subida directa:", e);
+      console.warn("Proxy upload error, intentando subida directa:", e);
     }
 
     // 2. Subida directa a GitHub API (Contents API en puneta29/profitivo-videos)
@@ -1596,11 +1601,11 @@ const ProfitivoAPI = {
       const base64Promise = new Promise((resolve, reject) => {
         reader.onload = () => resolve(reader.result.split(',')[1]);
         reader.onerror = reject;
-        reader.readAsDataURL(videoFile);
+        reader.readAsDataURL(file);
       });
 
       const b64 = await base64Promise;
-      const ghRes = await fetch(`https://api.github.com/repos/puneta29/profitivo-videos/contents/videos/${cleanName}`, {
+      const ghRes = await fetch(`https://api.github.com/repos/puneta29/profitivo-videos/contents/media/${cleanName}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${PROFITIVO_CLOUD_CONFIG.GITHUB_TOKEN}`,
@@ -1608,7 +1613,7 @@ const ProfitivoAPI = {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          message: 'Upload lesson video: ' + cleanName,
+          message: 'Upload lesson asset: ' + cleanName,
           content: b64
         })
       });
@@ -1622,19 +1627,50 @@ const ProfitivoAPI = {
     }
 
     // 3. Fallback de enlace local temporal si no hay conexión
-    return URL.createObjectURL(videoFile);
+    return URL.createObjectURL(file);
   },
 
-  saveCourse: async (courseData, videoFile) => {
+  uploadVideoToGitHub: async (videoFile) => {
+    return ProfitivoAPI.uploadFileToGitHub(videoFile);
+  },
+
+  saveCourse: async (courseData, videoFile, docFile = null, extraVideoFiles = []) => {
     const isEdit = !!courseData.id;
     const courseId = courseData.id || ('course-' + Date.now());
 
     let videoUrl = courseData.video_url || '';
     if (videoFile) {
-      videoUrl = await ProfitivoAPI.uploadVideoToGitHub(videoFile);
+      videoUrl = await ProfitivoAPI.uploadFileToGitHub(videoFile);
     } else if (isEdit && !videoUrl) {
       const existing = (ProfitivoCloudDB._cache?.courses || []).find(c => c.id === courseId);
       if (existing) videoUrl = existing.video_url;
+    }
+
+    // Subir documento (PowerPoint o PDF) si se seleccionó archivo
+    let docUrl = courseData.document_url || '';
+    if (docFile) {
+      docUrl = await ProfitivoAPI.uploadFileToGitHub(docFile);
+    } else if (isEdit && !docUrl) {
+      const existing = (ProfitivoCloudDB._cache?.courses || []).find(c => c.id === courseId);
+      if (existing) docUrl = existing.document_url;
+    }
+
+    // Subir videos adicionales si tienen archivos locales
+    const rawExtraVideos = Array.isArray(courseData.extra_videos) ? courseData.extra_videos : [];
+    const extraVideos = [];
+    for (let i = 0; i < rawExtraVideos.length; i++) {
+      const item = rawExtraVideos[i];
+      let vUrl = item.video_url || '';
+      if (extraVideoFiles && extraVideoFiles[i]) {
+        vUrl = await ProfitivoAPI.uploadFileToGitHub(extraVideoFiles[i]);
+      }
+      if (vUrl) {
+        extraVideos.push({
+          id: Sanitizer.cleanText(item.id, 60) || ('vid-' + Date.now() + '-' + i),
+          title: Sanitizer.cleanText(item.title, 150) || ('Clase ' + (i + 1)),
+          video_url: Sanitizer.cleanUrl(vUrl)
+        });
+      }
     }
 
     const cleanTitle = Sanitizer.cleanText(courseData.title, 150);
@@ -1642,11 +1678,9 @@ const ProfitivoAPI = {
     const cleanDescription = Sanitizer.cleanText(courseData.description, 2000);
     const cleanPrice = Sanitizer.cleanAmount(courseData.price);
     const cleanVideoUrl = Sanitizer.cleanUrl(videoUrl);
-    const cleanGlossaryTerms = (courseData.glossary_terms || []).map(t => ({
-      id: Sanitizer.cleanText(t.id, 60),
-      term: Sanitizer.cleanText(t.term, 100),
-      definition: Sanitizer.cleanText(t.definition, 1000)
-    }));
+    const cleanMainVideoTitle = Sanitizer.cleanText(courseData.main_video_title, 150) || 'Video Principal / Bienvenida';
+    const cleanDocUrl = Sanitizer.cleanUrl(docUrl);
+    const cleanDocName = Sanitizer.cleanText(courseData.document_name, 150) || 'Presentación y Material de Apoyo (PDF / PPT)';
 
     const updatedCourse = {
       id: courseId,
@@ -1658,10 +1692,13 @@ const ProfitivoAPI = {
       is_included_in_lifetime: courseData.is_included_in_lifetime === true || courseData.is_included_in_lifetime === 'true',
       thumbnail_url: Sanitizer.cleanUrl(courseData.thumbnail_url) || 'logo.png',
       video_url: cleanVideoUrl,
+      main_video_title: cleanMainVideoTitle,
+      extra_videos: extraVideos,
+      document_url: cleanDocUrl,
+      document_name: cleanDocName,
       is_published: true,
       created_by: Sanitizer.cleanText(courseData.created_by, 50) || 'Admin',
-      created_at: courseData.created_at || new Date().toISOString(),
-      glossary_terms: cleanGlossaryTerms
+      created_at: courseData.created_at || new Date().toISOString()
     };
 
     // 100% Web: guardar y sincronizar en la nube global directamente

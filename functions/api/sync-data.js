@@ -131,6 +131,14 @@ function applyActionToDb(db, action, payload) {
       is_included_in_lifetime: payload.is_included_in_lifetime === true || payload.is_included_in_lifetime === 'true',
       thumbnail_url: sanitizeServerUrl(payload.thumbnail_url) || 'logo.png',
       video_url: sanitizeServerUrl(payload.video_url),
+      main_video_title: sanitizeServerText(payload.main_video_title, 150) || 'Video Principal / Bienvenida',
+      extra_videos: Array.isArray(payload.extra_videos) ? payload.extra_videos.map((v, i) => ({
+        id: sanitizeServerText(v.id, 60) || ('vid-' + Date.now() + '-' + i),
+        title: sanitizeServerText(v.title, 150) || ('Clase ' + (i + 1)),
+        video_url: sanitizeServerUrl(v.video_url)
+      })).filter(v => !!v.video_url) : [],
+      document_url: sanitizeServerUrl(payload.document_url),
+      document_name: sanitizeServerText(payload.document_name, 150) || 'Material de Apoyo (PDF / PPT)',
       is_published: true,
       created_by: sanitizeServerText(payload.created_by, 50) || 'Admin',
       created_at: payload.created_at || new Date().toISOString()
