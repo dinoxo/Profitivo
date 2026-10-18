@@ -79,7 +79,7 @@
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <div class="form-group">
                   <label class="form-label">Método de Pago Utilizado:</label>
-                  <select id="rep-method-select" class="form-select" required>
+                  <select id="rep-method-select" class="form-select" required onchange="updateMembershipMethodInfo()">
                     <!-- Opciones de métodos -->
                   </select>
                 </div>
@@ -89,10 +89,21 @@
                 </div>
               </div>
 
+              <!-- Recuadro informativo del método seleccionado con botón copiar -->
+              <div id="rep-selected-method-box" style="margin-bottom: 16px; display: none;"></div>
+
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <div class="form-group">
-                  <label class="form-label">Monto Oficial Requerido ($ USD / USDT):</label>
-                  <input type="text" id="rep-amount" class="form-input" readonly value="$50.00 USDT" style="background: rgba(255, 255, 255, 0.04); cursor: not-allowed; font-weight: 700; color: var(--green-neon); border-color: rgba(0, 255, 136, 0.3);">
+                  <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>💵 Monto Oficial Requerido ($ USD / USDT):</span>
+                    <span style="font-size: 0.72rem; color: var(--green-neon);">Copia con 1 clic</span>
+                  </label>
+                  <div style="display: flex; gap: 8px;">
+                    <input type="text" id="rep-amount" class="form-input" readonly value="$50.00 USDT" style="background: rgba(255, 255, 255, 0.04); cursor: not-allowed; font-weight: 700; color: var(--green-neon); border-color: rgba(0, 255, 136, 0.3); flex: 1;">
+                    <button type="button" class="btn btn-outline" onclick="copyAmountVal('rep-amount', this)" title="Copiar monto numérico a transferir" style="padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 5px; border-color: var(--green-neon); color: var(--green-neon); white-space: nowrap;">
+                      <span>📋</span> <span>Copiar</span>
+                    </button>
+                  </div>
                 </div>
                 <div class="form-group">
                   <label class="form-label">Adjuntar Comprobante (JPG, PNG, Captura):</label>
@@ -268,8 +279,16 @@
         <div id="unlock-method-info" style="margin-bottom: 16px;"></div>
 
         <div class="form-group">
-          <label class="form-label">Monto Oficial del Curso ($ USD / USDT):</label>
-          <input type="text" id="unlock-amount" class="form-input" readonly style="background: rgba(255, 255, 255, 0.04); cursor: not-allowed; font-weight: 700; color: var(--gold-prestige); border-color: rgba(255, 215, 0, 0.3);">
+          <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>💵 Monto Oficial del Curso ($ USD / USDT):</span>
+            <span style="font-size: 0.72rem; color: var(--gold-prestige);">Copia con 1 clic</span>
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="unlock-amount" class="form-input" readonly style="background: rgba(255, 255, 255, 0.04); cursor: not-allowed; font-weight: 700; color: var(--gold-prestige); border-color: rgba(255, 215, 0, 0.3); flex: 1;">
+            <button type="button" class="btn btn-outline" onclick="copyAmountVal('unlock-amount', this)" title="Copiar monto numérico del curso" style="padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; border-color: var(--gold-prestige); color: var(--gold-prestige); white-space: nowrap;">
+              <span>📋</span> <span>Copiar</span>
+            </button>
+          </div>
         </div>
 
         <div class="form-group">
@@ -523,23 +542,117 @@
 
       if (container) {
         container.innerHTML = paymentMethodsCache.map(m => `
-          <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 18px; border-radius: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <strong style="color: var(--green-neon); font-size: 0.95rem;">${m.title}</strong>
-              <span class="badge badge-green">${m.currency}</span>
+          <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; transition: border-color 0.2s ease;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <strong style="color: var(--green-neon); font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
+                  <span>💳</span> <span>${escapeHtmlAttr(m.title)}</span>
+                </strong>
+                <span class="badge badge-green" style="font-size: 0.72rem; padding: 2px 8px;">${escapeHtmlAttr(m.currency)}</span>
+              </div>
+
+              <!-- Bloque del Número de Cuenta / Dirección de Wallet con botón Copiar -->
+              <div style="background: #0B1322; border: 1px solid rgba(0, 230, 118, 0.3); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 0.68rem; color: var(--green-neon); text-transform: uppercase; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.5px;">
+                    🔑 Cuenta / Wallet / Teléfono:
+                  </div>
+                  <div class="copyable-data" style="font-family: monospace; font-size: 0.88rem; color: #fff; word-break: break-all; user-select: all; font-weight: 600;">
+                    ${escapeHtmlAttr(m.account_identifier)}
+                  </div>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="copyValue('${escapeJs(m.account_identifier)}', this)" title="Copiar número de cuenta / wallet" style="padding: 7px 12px; font-size: 0.8rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 0 10px rgba(0,230,118,0.25);">
+                  <span>📋</span> <span>Copiar</span>
+                </button>
+              </div>
+
+              <!-- Bloque de Instrucciones con botón Copiar (si existen) -->
+              ${m.instructions ? `
+                <div style="background: rgba(255,255,255,0.02); border: 1px dashed var(--border-subtle); border-radius: 8px; padding: 8px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 2px;">
+                      📝 Instrucciones:
+                    </div>
+                    <div class="copyable-data" style="font-size: 0.82rem; color: var(--text-secondary); word-break: break-word; user-select: text;">
+                      ${escapeHtmlAttr(m.instructions)}
+                    </div>
+                  </div>
+                  <button type="button" class="btn btn-outline" onclick="copyValue('${escapeJs(m.instructions)}', this)" title="Copiar instrucciones" style="padding: 4px 8px; font-size: 0.75rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;">
+                    <span>📋</span> <span>Copiar</span>
+                  </button>
+                </div>
+              ` : ''}
             </div>
-            <p style="font-family: monospace; background: #0B1322; padding: 6px 8px; border-radius: 6px; font-size: 0.85rem; color: #fff; word-break: break-all; margin-bottom: 8px;">
-              ${m.account_identifier}
-            </p>
-            <p style="font-size: 0.8rem; color: var(--text-muted);">${m.instructions || ''}</p>
           </div>
         `).join('');
       }
 
-      const options = paymentMethodsCache.map(m => `<option value="${m.title}">${m.title} (${m.currency})</option>`).join('');
+      const options = paymentMethodsCache.map(m => `<option value="${escapeHtmlAttr(m.title)}">${escapeHtmlAttr(m.title)} (${escapeHtmlAttr(m.currency)})</option>`).join('');
       if (select) select.innerHTML = options;
       if (selectUnlock) selectUnlock.innerHTML = options;
+      updateMembershipMethodInfo();
       updateUnlockMethodInfo();
+    }
+
+    function renderMethodDetailsCard(m, accentColor = 'var(--green-neon)') {
+      if (!m) return '';
+      const safeId = escapeJs(m.account_identifier || '');
+      const safeInstructions = escapeJs(m.instructions || '');
+
+      return `
+        <div style="background: #060B14; border: 1px solid ${accentColor}; border-radius: 10px; padding: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <strong style="color: ${accentColor}; font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
+              <span>💳</span> <span>${escapeHtmlAttr(m.title)}</span>
+            </strong>
+            <span class="badge badge-green" style="font-size: 0.72rem; padding: 2px 8px;">${escapeHtmlAttr(m.currency)}</span>
+          </div>
+
+          <div style="background: #0B1322; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 2px;">
+                🔑 Datos / Wallet / Cuenta:
+              </div>
+              <div class="copyable-data" style="font-family: monospace; font-size: 0.88rem; color: #fff; word-break: break-all; user-select: all; font-weight: 600;">
+                ${escapeHtmlAttr(m.account_identifier)}
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="copyValue('${safeId}', this)" title="Copiar datos de wallet o cuenta" style="padding: 6px 12px; font-size: 0.8rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 0 10px rgba(0,230,118,0.25);">
+              <span>📋</span> <span>Copiar</span>
+            </button>
+          </div>
+
+          ${m.instructions ? `
+            <div style="background: rgba(255,255,255,0.02); border: 1px dashed var(--border-subtle); border-radius: 6px; padding: 8px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 2px;">
+                  📝 Instrucciones:
+                </div>
+                <div class="copyable-data" style="font-size: 0.82rem; color: var(--text-secondary); word-break: break-word; user-select: text;">
+                  ${escapeHtmlAttr(m.instructions)}
+                </div>
+              </div>
+              <button type="button" class="btn btn-outline" onclick="copyValue('${safeInstructions}', this)" title="Copiar instrucciones" style="padding: 4px 8px; font-size: 0.75rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;">
+                <span>📋</span> <span>Copiar</span>
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    function updateMembershipMethodInfo() {
+      const select = document.getElementById('rep-method-select');
+      const box = document.getElementById('rep-selected-method-box');
+      if (!select || !box) return;
+      const selectedTitle = select.value;
+      const m = (paymentMethodsCache || []).find(x => x.title === selectedTitle) || (paymentMethodsCache && paymentMethodsCache[0]);
+      if (!m) {
+        box.style.display = 'none';
+        return;
+      }
+      box.style.display = 'block';
+      box.innerHTML = renderMethodDetailsCard(m, 'var(--green-neon)');
     }
 
     function updateUnlockMethodInfo() {
@@ -553,18 +666,73 @@
         return;
       }
       box.style.display = 'block';
-      box.innerHTML = `
-        <div style="background: #060B14; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <strong style="color: var(--green-neon); font-size: 0.9rem;">${m.title}</strong>
-            <span class="badge badge-green" style="font-size: 0.7rem;">${m.currency}</span>
-          </div>
-          <p style="font-family: monospace; background: #0B1322; padding: 6px 8px; border-radius: 6px; font-size: 0.85rem; color: #fff; word-break: break-all; margin: 4px 0 8px;">
-            ${m.account_identifier}
-          </p>
-          <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">${m.instructions || ''}</p>
-        </div>
-      `;
+      box.innerHTML = renderMethodDetailsCard(m, 'var(--gold-prestige)');
+    }
+
+    function copyValue(text, btnEl) {
+      if (!text) {
+        showToast("No hay información para copiar.", true);
+        return;
+      }
+      const clean = String(text).trim();
+      const onSuccess = () => {
+        showToast("✓ Copiado al portapapeles 📋");
+        if (btnEl) {
+          const orig = btnEl.innerHTML;
+          btnEl.innerHTML = '✔ ¡Copiado!';
+          btnEl.style.borderColor = 'var(--green-neon)';
+          btnEl.style.color = 'var(--green-neon)';
+          setTimeout(() => {
+            btnEl.innerHTML = orig;
+            btnEl.style.borderColor = '';
+            btnEl.style.color = '';
+          }, 1800);
+        }
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(clean).then(onSuccess).catch(() => fallbackCopy(clean, onSuccess));
+      } else {
+        fallbackCopy(clean, onSuccess);
+      }
+    }
+
+    function copyAmountVal(inputId, btnEl) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      let val = el.value || '';
+      const match = val.match(/([0-9]+(?:\.[0-9]+)?)/);
+      const clean = match ? match[1] : val.replace(/[^0-9.]/g, '');
+      copyValue(clean || val, btnEl);
+    }
+
+    function fallbackCopy(text, onSuccess) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.top = '-9999px';
+      ta.style.left = '-9999px';
+      ta.setAttribute('readonly', '');
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        const ok = document.execCommand('copy');
+        if (ok && onSuccess) onSuccess();
+        else if (!ok) showToast("No se pudo copiar automáticamente.", true);
+      } catch (e) {
+        showToast("Error al copiar texto.", true);
+      }
+      document.body.removeChild(ta);
+    }
+
+    function escapeJs(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r');
     }
 
     // Previsualización y testeo de compresión antes de enviar

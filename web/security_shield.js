@@ -7,9 +7,9 @@
 
   // 1. Deshabilitar Clic Derecho (Menú Contextual)
   document.addEventListener('contextmenu', function(e) {
-    // Permitir clic derecho normal en inputs/textareas para copiar/pegar texto legítimo
+    // Permitir clic derecho normal en inputs/textareas y elementos copiables para copiar/pegar texto legítimo
     const tag = (e.target.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'textarea') return;
+    if (tag === 'input' || tag === 'textarea' || (e.target.closest && (e.target.closest('.copyable-data') || e.target.closest('.copyable-text') || e.target.closest('[data-copyable="true"]')))) return;
     e.preventDefault();
     e.stopPropagation();
     return false;
@@ -205,8 +205,8 @@
       -ms-user-select: none;
       user-select: none;
     }
-    /* Permitir selección normal en campos de formulario para comodidad del usuario */
-    input, textarea, [contenteditable="true"] {
+    /* Permitir selección normal en campos de formulario y elementos copiables para comodidad del usuario */
+    input, textarea, [contenteditable="true"], .copyable-data, .copyable-text, [data-copyable="true"] {
       -webkit-user-select: text !important;
       -moz-user-select: text !important;
       -ms-user-select: text !important;

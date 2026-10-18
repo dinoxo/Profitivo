@@ -436,38 +436,80 @@
         <input type="hidden" id="method-id">
 
         <div class="form-group">
-          <label class="form-label">Título del Método:</label>
-          <input type="text" id="method-title" class="form-input" required placeholder="ej. Binance Pay, USDT TRC20, Pago Móvil Banesco...">
+          <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>🏷️ Título del Método:</span>
+            <span style="font-size: 0.72rem; color: var(--text-muted);">Copiar y pegar habilitado</span>
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="method-title" class="form-input" required placeholder="ej. Binance Pay, USDT TRC20, Pago Móvil Banesco..." style="flex: 1;">
+            <button type="button" class="btn btn-outline" onclick="copyFormField('method-title', this)" title="Copiar título" style="padding: 0 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+              <span>📋</span> <span>Copiar</span>
+            </button>
+            <button type="button" class="btn btn-outline" onclick="pasteFormField('method-title', this)" title="Pegar del portapapeles" style="padding: 0 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+              <span>📥</span> <span>Pegar</span>
+            </button>
+          </div>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
           <div class="form-group">
-            <label class="form-label">Tipo de Método:</label>
+            <label class="form-label">⚙️ Tipo de Método:</label>
             <select id="method-type" class="form-select">
-              <option value="PAGO_MOVIL">Pago Móvil</option>
-              <option value="CRYPTO">Cripto Wallet</option>
-              <option value="BINANCE_PAY">Binance Pay</option>
-              <option value="BANK_TRANSFER">Transferencia Bancaria</option>
-              <option value="OTHER">Otro</option>
+              <option value="PAGO_MOVIL">📱 Pago Móvil</option>
+              <option value="CRYPTO">🪙 Cripto Wallet</option>
+              <option value="BINANCE_PAY">🟡 Binance Pay</option>
+              <option value="BANK_TRANSFER">🏦 Transferencia Bancaria</option>
+              <option value="OTHER">💳 Otro Método</option>
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Moneda:</label>
-            <input type="text" id="method-currency" class="form-input" required placeholder="USDT, USD, VES...">
+            <label class="form-label">🪙 Moneda:</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="method-currency" class="form-input" required placeholder="USDT, USD, VES..." style="flex: 1;">
+              <button type="button" class="btn btn-outline" onclick="copyFormField('method-currency', this)" title="Copiar moneda" style="padding: 0 9px; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center;">
+                <span>📋</span>
+              </button>
+              <button type="button" class="btn btn-outline" onclick="pasteFormField('method-currency', this)" title="Pegar moneda" style="padding: 0 9px; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center;">
+                <span>📥</span>
+              </button>
+            </div>
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Número de Cuenta, Teléfono o Dirección de Wallet:</label>
-          <input type="text" id="method-identifier" class="form-input" required placeholder="Dirección pública, teléfono, cédula o número...">
+          <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>🔑 Número de Cuenta, Teléfono o Dirección de Wallet:</span>
+            <span style="font-size: 0.72rem; color: var(--green-neon);">Acceso rápido 📋 / 📥</span>
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="method-identifier" class="form-input" required placeholder="Dirección pública de wallet, teléfono, cédula o número de cuenta..." style="flex: 1; font-family: monospace;">
+            <button type="button" class="btn btn-outline" onclick="copyFormField('method-identifier', this)" title="Copiar cuenta o wallet" style="padding: 0 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; border-color: var(--green-neon); color: var(--green-neon);">
+              <span>📋</span> <span>Copiar</span>
+            </button>
+            <button type="button" class="btn btn-outline" onclick="pasteFormField('method-identifier', this)" title="Pegar wallet o cuenta" style="padding: 0 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+              <span>📥</span> <span>Pegar</span>
+            </button>
+          </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Instrucciones para el Alumno:</label>
-          <textarea id="method-instructions" class="form-textarea" rows="2" placeholder="Pasos para enviar..."></textarea>
+          <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>📝 Instrucciones para el Alumno:</span>
+          </label>
+          <div style="position: relative;">
+            <textarea id="method-instructions" class="form-textarea" rows="3" placeholder="Pasos para enviar (ej. Enviar por red Tron TRC20, colocar en el concepto el correo registrado...)" style="padding-bottom: 38px;"></textarea>
+            <div style="position: absolute; right: 8px; bottom: 8px; display: flex; gap: 6px;">
+              <button type="button" class="btn btn-outline" onclick="copyFormField('method-instructions', this)" title="Copiar instrucciones" style="padding: 3px 10px; font-size: 0.75rem; background: rgba(11, 19, 34, 0.95); display: inline-flex; align-items: center; gap: 4px;">
+                <span>📋</span> <span>Copiar</span>
+              </button>
+              <button type="button" class="btn btn-outline" onclick="pasteFormField('method-instructions', this)" title="Pegar instrucciones" style="padding: 3px 10px; font-size: 0.75rem; background: rgba(11, 19, 34, 0.95); display: inline-flex; align-items: center; gap: 4px;">
+                <span>📥</span> <span>Pegar</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        <button type="submit" id="btn-save-method" class="btn btn-primary" style="width: 100%; padding: 12px;">Guardar Método</button>
+        <button type="submit" id="btn-save-method" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 10px;">Guardar Método</button>
       </form>
     </div>
   </div>
@@ -1311,9 +1353,14 @@
               </div>
               <span class="badge badge-green">${m.currency}</span>
             </div>
-            <p style="font-family: monospace; background: #060B14; padding: 6px; border-radius: 4px; font-size: 0.8rem; word-break: break-all; margin: 10px 0 8px;">
-              ${m.account_identifier}
-            </p>
+            <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 8px 10px; border-radius: 6px; margin: 10px 0 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+              <span class="copyable-data" style="font-family: monospace; font-size: 0.82rem; color: #fff; word-break: break-all; flex: 1; user-select: all;">
+                ${escapeHtmlAttr(m.account_identifier)}
+              </span>
+              <button type="button" class="btn btn-outline" onclick="copyValue('${escapeHtmlAttr(m.account_identifier)}', this)" title="Copiar identificador / wallet" style="padding: 3px 8px; font-size: 0.72rem; flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;">
+                <span>📋</span> <span>Copiar</span>
+              </button>
+            </div>
             <p style="font-size: 0.8rem; color: var(--text-muted); min-height: 36px;">${m.instructions || 'Sin notas adicionales'}</p>
             <div style="display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end;">
               <button class="btn btn-outline" style="padding: 4px 12px; font-size: 0.78rem;" onclick="openEditMethodModal('${m.id}')">✏️ Editar</button>
@@ -1322,6 +1369,91 @@
           </div>
         `;
       }).join('');
+    }
+
+    function copyFormField(fieldId, btnEl) {
+      const el = document.getElementById(fieldId);
+      if (!el || !el.value) {
+        showToast("No hay texto para copiar en este campo.", true);
+        return;
+      }
+      copyValue(el.value, btnEl);
+    }
+
+    async function pasteFormField(fieldId, btnEl) {
+      const el = document.getElementById(fieldId);
+      if (!el) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          const text = await navigator.clipboard.readText();
+          if (!text) {
+            showToast("El portapapeles está vacío.", true);
+            return;
+          }
+          el.value = text;
+          el.focus();
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          showToast("✓ Texto pegado en el campo 📥");
+          if (btnEl) {
+            const orig = btnEl.innerHTML;
+            btnEl.innerHTML = '✔ ¡Pegado!';
+            setTimeout(() => btnEl.innerHTML = orig, 1500);
+          }
+        } else {
+          showToast("Usa Ctrl+V para pegar en este campo.", true);
+          el.focus();
+        }
+      } catch (err) {
+        showToast("Haz clic en el campo y presiona Ctrl+V para pegar.", true);
+        el.focus();
+      }
+    }
+
+    function copyValue(text, btnEl) {
+      if (!text) {
+        showToast("No hay texto para copiar.", true);
+        return;
+      }
+      const clean = String(text).trim();
+      const onSuccess = () => {
+        showToast("✓ Copiado al portapapeles 📋");
+        if (btnEl) {
+          const orig = btnEl.innerHTML;
+          btnEl.innerHTML = '✔ ¡Copiado!';
+          btnEl.style.borderColor = 'var(--green-neon)';
+          btnEl.style.color = 'var(--green-neon)';
+          setTimeout(() => {
+            btnEl.innerHTML = orig;
+            btnEl.style.borderColor = '';
+            btnEl.style.color = '';
+          }, 1800);
+        }
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(clean).then(onSuccess).catch(() => fallbackCopy(clean, onSuccess));
+      } else {
+        fallbackCopy(clean, onSuccess);
+      }
+    }
+
+    function fallbackCopy(text, onSuccess) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.top = '-9999px';
+      ta.style.left = '-9999px';
+      ta.setAttribute('readonly', '');
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        const ok = document.execCommand('copy');
+        if (ok && onSuccess) onSuccess();
+        else if (!ok) showToast("No se pudo copiar automáticamente.", true);
+      } catch (e) {
+        showToast("Error al copiar texto.", true);
+      }
+      document.body.removeChild(ta);
     }
 
     function openAddMethodModal() {
