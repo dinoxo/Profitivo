@@ -9,6 +9,20 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#060B14">
   <script src="security_shield.js"></script>
+  <style>
+    .news-card-link {
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+    .news-card-link:hover {
+      transform: translateY(-4px);
+      border-color: rgba(0, 230, 118, 0.45);
+      box-shadow: 0 10px 30px rgba(0, 230, 118, 0.12);
+    }
+  </style>
 </head>
 <body>
 
@@ -150,32 +164,9 @@
       <span style="color: var(--green-neon); font-size: 0.9rem; font-weight: 600;">● Actualizaciones en tiempo real</span>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
-      <div class="glass-card">
-        <span class="badge badge-green" style="margin-bottom: 10px;">CRIPTO</span>
-        <h4 style="font-size: 1.15rem; margin-bottom: 10px;">Adopción Institucional de Bitcoin y Ciclos de Halving</h4>
-        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 14px;">
-          Análisis de la liquidez global en activos digitales y cómo los nuevos fondos cotizados impulsan la demanda estructural.
-        </p>
-        <span style="color: var(--text-muted); font-size: 0.8rem;">13 Octubre 2026</span>
-      </div>
-
-      <div class="glass-card">
-        <span class="badge badge-gold" style="margin-bottom: 10px;">TRADING</span>
-        <h4 style="font-size: 1.15rem; margin-bottom: 10px;">Gestión de Riesgo: La Clave para Sobrevivir en Futuros</h4>
-        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 14px;">
-          Cómo calcular el tamaño de posición adecuado (1-2% por operación) para evitar liquidaciones innecesarias en alta volatilidad.
-        </p>
-        <span style="color: var(--text-muted); font-size: 0.8rem;">12 Octubre 2026</span>
-      </div>
-
-      <div class="glass-card">
-        <span class="badge badge-green" style="margin-bottom: 10px;">UX/UI TECH</span>
-        <h4 style="font-size: 1.15rem; margin-bottom: 10px;">Diseño de Terminales Financieras y Psicología Visual</h4>
-        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 14px;">
-          La importancia de paletas oscuras de alto contraste para minimizar el estrés cognitivo del operador frente a los monitores.
-        </p>
-        <span style="color: var(--text-muted); font-size: 0.8rem;">10 Octubre 2026</span>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;" id="grid-public-news">
+      <div class="glass-card" style="padding: 24px; text-align: center; grid-column: 1 / -1;">
+        <p style="color: var(--green-neon); font-size: 0.95rem; margin: 0;">⏳ Sincronizando noticias oficiales en tiempo real...</p>
       </div>
     </div>
   </section>
@@ -479,6 +470,52 @@
       }
     }
 
+    // Renderizar Noticias & Tendencias Tecnológicas en la Landing
+    async function loadPublicNews() {
+      const container = document.getElementById('grid-public-news');
+      if (!container) return;
+
+      try {
+        const newsList = await window.ProfitivoAPI.getNews();
+        if (!newsList || newsList.length === 0) {
+          container.innerHTML = `
+            <div class="glass-card" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px;">
+              <p style="color: var(--text-muted); font-size: 1rem; margin: 0;">Próximamente más noticias y tendencias de mercado.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = newsList.map(n => {
+          let badgeClass = 'badge-green';
+          const catLower = (n.category_name || '').toLowerCase();
+          if (catLower.includes('trading') || catLower.includes('finanza')) badgeClass = 'badge-gold';
+          else if (catLower.includes('cripto') || catLower.includes('web3')) badgeClass = 'badge-green';
+          else badgeClass = 'badge-blue';
+
+          const dateStr = n.created_at ? new Date(n.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+          return `
+            <a href="${n.url}" target="_blank" rel="noopener noreferrer" class="glass-card news-card-link" style="padding: 24px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px;">
+                <span class="badge ${badgeClass}">${n.category_name || 'TECNOLOGÍA'}</span>
+                ${dateStr ? `<span style="color: var(--text-muted); font-size: 0.78rem;">${dateStr}</span>` : ''}
+              </div>
+              <h4 style="font-size: 1.15rem; color: #fff; margin-bottom: 10px; line-height: 1.4;">${n.title}</h4>
+              <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 16px; line-height: 1.5; flex: 1;">
+                ${n.description}
+              </p>
+              <div style="display: flex; align-items: center; gap: 6px; color: var(--green-neon); font-size: 0.85rem; font-weight: 600; margin-top: auto; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06);">
+                Leer noticia completa <span>↗</span>
+              </div>
+            </a>
+          `;
+        }).join('');
+      } catch (err) {
+        console.warn("Fallo cargando noticias públicas:", err);
+      }
+    }
+
     function handleCourseAccess(courseId) {
       const user = window.ProfitivoSession.getUser();
       if (user) {
@@ -564,6 +601,7 @@
     // Comprobar si ya hay sesión activa
     window.addEventListener('DOMContentLoaded', () => {
       loadCoursesPreview();
+      loadPublicNews();
       const user = window.ProfitivoSession.getUser();
       if (user) {
         const nav = document.getElementById('nav-actions');

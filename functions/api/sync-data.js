@@ -118,6 +118,7 @@ function applyActionToDb(db, action, payload) {
   if (!db.orders) db.orders = [];
   if (!db.lifetime_users) db.lifetime_users = [];
   if (!db.payment_methods) db.payment_methods = [];
+  if (!db.news) db.news = [];
 
   if (action === 'SAVE_COURSE') {
     const course = {
@@ -434,6 +435,27 @@ function applyActionToDb(db, action, payload) {
     if (!db.payment_methods) db.payment_methods = [];
     const methodId = sanitizeServerText(payload.id, 60);
     db.payment_methods = db.payment_methods.filter(m => m.id !== methodId);
+  } else if (action === 'SAVE_NEWS') {
+    if (!db.news) db.news = [];
+    const newsItem = {
+      id: sanitizeServerText(payload.id, 60) || ('news-' + Date.now()),
+      title: sanitizeServerText(payload.title, 200),
+      category_id: sanitizeServerText(payload.category_id, 50),
+      category_name: sanitizeServerText(payload.category_name, 100),
+      description: sanitizeServerText(payload.description, 2000),
+      url: sanitizeServerUrl(payload.url),
+      created_at: payload.created_at || new Date().toISOString()
+    };
+    const idx = db.news.findIndex(n => n.id === newsItem.id);
+    if (idx !== -1) {
+      db.news[idx] = { ...db.news[idx], ...newsItem };
+    } else {
+      db.news.unshift(newsItem);
+    }
+  } else if (action === 'DELETE_NEWS') {
+    if (!db.news) db.news = [];
+    const newsId = sanitizeServerText(payload.id, 60);
+    db.news = db.news.filter(n => n.id !== newsId);
   }
 }
 
@@ -448,7 +470,8 @@ async function writeToGitHubWithRetry(action, payload, maxRetries = 3) {
       user_access_map: {},
       orders: [],
       settings: { membership_price: 50.00, currency: 'USDT' },
-      payment_methods: []
+      payment_methods: [],
+      news: []
     };
 
     applyActionToDb(db, action, payload);

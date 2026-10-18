@@ -105,7 +105,7 @@
         ⚙️ Métodos de Pago
       </button>
       <button id="btn-tab-cursos" class="btn btn-outline" onclick="switchAdminTab('cursos')">
-        🎬 Cursos y Glosario
+        🎬 Cursos y Noticias
       </button>
       <button id="btn-tab-soporte" class="btn btn-outline" onclick="switchAdminTab('soporte')">
         🔑 Solicitudes de Recuperación (<span id="recovery-count">0</span>)
@@ -217,21 +217,22 @@
     </div>
 
     <!-- ============================================================================== -->
-    <!-- TAB 4: GESTOR DE CURSOS Y GLOSARIO -->
+    <!-- ============================================================================== -->
+    <!-- TAB 4: GESTOR DE CURSOS Y NOTICIAS -->
     <!-- ============================================================================== -->
     <div id="tab-cursos" class="glass-card" style="display: none;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
         <div>
-          <h3 style="font-size: 1.4rem;">Cursos & Glosario de Conceptos</h3>
+          <h3 style="font-size: 1.4rem;">Cursos & Noticias Tecnológicas</h3>
           <p style="color: var(--text-secondary); font-size: 0.9rem;">
-            Agrega nuevas formaciones y define palabras técnicas para enriquecer el aprendizaje.
+            Agrega nuevas formaciones y gestiona las noticias y tendencias del portal web.
           </p>
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
           <button class="btn btn-outline" onclick="openCategoriesModal()" style="border-color: var(--gold-prestige); color: var(--gold-prestige);" title="Ver, editar o crear categorías de cursos">
             🏷️ Categorías de Cursos
           </button>
-          <button class="btn btn-outline" onclick="openAddGlossaryModal()">+ Agregar Término Glosario</button>
+          <button class="btn btn-outline" onclick="openAddNewsModal()" style="border-color: var(--green-neon); color: var(--green-neon);">+ Nueva Noticia</button>
           <button class="btn btn-primary" onclick="openAddCourseModal()">+ Nuevo Curso</button>
         </div>
       </div>
@@ -240,25 +241,29 @@
         <!-- Llenado dinámicamente -->
       </div>
 
-      <!-- Tabla de Glosario Administrable -->
+      <!-- Tabla de Noticias & Tendencias Tecnológicas Administrable -->
       <hr style="border: 0; border-top: 1px solid var(--border-subtle); margin: 30px 0 20px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
         <div>
-          <h4 style="font-size: 1.2rem; color: var(--green-neon);">📖 Glosario de Conceptos Registrados</h4>
-          <p style="color: var(--text-secondary); font-size: 0.85rem;">Consulta, edita o elimina los términos y conceptos clave de cada curso.</p>
+          <h4 style="font-size: 1.2rem; color: var(--green-neon); display: flex; align-items: center; gap: 8px;">
+            📰 Noticias & Tendencias Tecnológicas
+          </h4>
+          <p style="color: var(--text-secondary); font-size: 0.85rem;">Gestiona las noticias que aparecen en la sección principal del portal web para los estudiantes y visitantes.</p>
         </div>
+        <button class="btn btn-primary" onclick="openAddNewsModal()" style="font-size: 0.85rem; padding: 6px 14px;">+ Nueva Noticia</button>
       </div>
       <div class="table-responsive">
         <table class="custom-table">
           <thead>
             <tr>
-              <th>Curso</th>
-              <th>Término / Palabra</th>
-              <th>Definición Oficial</th>
+              <th>Categoría</th>
+              <th>Título / Noticia</th>
+              <th>Descripción Breve</th>
+              <th>Enlace (Fuente)</th>
               <th>Acciones</th>
             </tr>
           </thead>
-          <tbody id="tbody-admin-glossary">
+          <tbody id="tbody-admin-news">
             <!-- Llenado dinámicamente -->
           </tbody>
         </table>
@@ -468,34 +473,49 @@
   </div>
 
   <!-- ============================================================================== -->
-  <!-- MODAL: AGREGAR / EDITAR TÉRMINO AL GLOSARIO -->
+  <!-- MODAL: AGREGAR / EDITAR NOTICIA & TENDENCIA TECNOLÓGICA -->
   <!-- ============================================================================== -->
-  <div class="modal-overlay" id="modal-add-glossary">
-    <div class="modal-content">
+  <div class="modal-overlay" id="modal-add-news" style="z-index: 2050 !important;" onclick="if(event.target === this) closeModal('modal-add-news')">
+    <div class="modal-content" style="max-width: 580px; box-shadow: 0 25px 75px rgba(0, 0, 0, 0.95); border: 1px solid var(--green-neon);" onclick="event.stopPropagation()">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h3 id="modal-glossary-title" style="font-size: 1.3rem;">Agregar Término al Glosario</h3>
-        <button onclick="closeModal('modal-add-glossary')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
+        <h3 id="modal-news-title" style="font-size: 1.3rem; color: var(--green-neon); display: flex; align-items: center; gap: 8px;">
+          📰 Nueva Noticia Tecnológica
+        </h3>
+        <button onclick="closeModal('modal-add-news')" style="background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;">&times;</button>
       </div>
 
-      <form id="form-add-glossary" onsubmit="handleAddGlossary(event)">
-        <input type="hidden" id="glossary-id">
+      <form id="form-add-news" onsubmit="handleAddNews(event)">
+        <input type="hidden" id="news-id">
 
         <div class="form-group">
-          <label class="form-label">Seleccionar Curso Asociado:</label>
-          <select id="glossary-course-select" class="form-select" required></select>
+          <label class="form-label">Nombre / Título de la Noticia:</label>
+          <input type="text" id="news-title" class="form-input" required placeholder="ej. Adopción Institucional de Bitcoin y Ciclos de Halving">
         </div>
 
         <div class="form-group">
-          <label class="form-label">Palabra o Término Clave:</label>
-          <input type="text" id="glossary-term" class="form-input" required placeholder="ej. Apalancamiento, Halving, Bullish...">
+          <label class="form-label">Categoría Asociada:</label>
+          <select id="news-category-select" class="form-select" required>
+            <!-- Llenado dinámicamente con las categorías existentes -->
+          </select>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Definición Directa y Profesional:</label>
-          <textarea id="glossary-definition" class="form-textarea" rows="3" required placeholder="Explicación clara del término..."></textarea>
+          <label class="form-label">Breve Descripción de la Noticia:</label>
+          <textarea id="news-description" class="form-textarea" rows="3" required placeholder="Resumen conciso del contenido y puntos clave..."></textarea>
         </div>
 
-        <button type="submit" id="btn-save-glossary" class="btn btn-primary" style="width: 100%; padding: 12px;">Guardar Término</button>
+        <div class="form-group">
+          <label class="form-label">URL / Enlace de la Fuente de la Noticia:</label>
+          <input type="url" id="news-url" class="form-input" required placeholder="https://ejemplo.com/noticia-oficial">
+          <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 4px; display: block;">
+            Los estudiantes y visitantes serán redirigidos a este enlace al hacer clic en la noticia.
+          </small>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-add-news')" style="flex: 1;">Cancelar</button>
+          <button type="submit" id="btn-save-news" class="btn btn-primary" style="flex: 2;">Guardar Noticia</button>
+        </div>
       </form>
     </div>
   </div>
@@ -609,27 +629,7 @@
           <div id="course-upload-status" style="margin-top: 8px; font-size: 0.82rem; color: var(--gold-prestige); display: none;">⏳ Procesando y subiendo video...</div>
         </div>
 
-        <!-- Glosario de Conceptos para este Curso (Múltiples Términos con + y -) -->
-        <div style="background: #0B1322; border: 1px solid var(--border-subtle); padding: 16px; border-radius: 10px; margin-bottom: 18px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-            <h4 style="font-size: 0.92rem; color: #fff; margin: 0; display: flex; align-items: center; gap: 6px;">
-              📖 Términos de Glosario para este Curso (Opcional):
-            </h4>
-            <button type="button" class="btn btn-primary" onclick="addCourseGlossaryRow()" style="padding: 4px 12px; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; font-weight: 700;" title="Agregar otro término (+)">
-              ➕ Agregar (+)
-            </button>
-          </div>
-
-          <div id="course-glossary-container" style="display: flex; flex-direction: column; gap: 10px; max-height: 240px; overflow-y: auto; padding-right: 4px;">
-            <!-- Filas dinámicas generadas con JS -->
-          </div>
-
-          <button type="button" class="btn btn-outline" onclick="addCourseGlossaryRow()" style="margin-top: 10px; padding: 7px 12px; font-size: 0.82rem; width: 100%; border-style: dashed; display: flex; align-items: center; justify-content: center; gap: 6px; border-color: var(--green-neon); color: var(--green-neon);">
-            ➕ Agregar otro término (+)
-          </button>
-        </div>
-
-        <button type="submit" id="btn-save-course" class="btn btn-primary" style="width: 100%; padding: 12px;">
+        <button type="submit" id="btn-save-course" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 10px;">
           🚀 Publicar Curso en Profitivo
         </button>
       </form>
@@ -709,7 +709,7 @@
     let allUsersCache = [];
     let allCoursesCache = [];
     let allMethodsCache = [];
-    let allGlossaryCache = [];
+    let allNewsCache = [];
     let allOrdersCache = [];
     let allCategoriesCache = [];
 
@@ -771,7 +771,7 @@
       loadUsersDirectory();
       loadAdminMethods();
       loadAdminCourses();
-      loadAdminGlossary();
+      loadAdminNews();
       loadRecoveryRequests();
 
       // Poller automático en tiempo real cada 6 segundos para administradores
@@ -829,7 +829,7 @@
         window.ProfitivoAPI.getCourses(true).then(courses => {
           allCoursesCache = courses;
           loadAdminCourses();
-          loadAdminGlossary(true);
+          loadAdminNews(true);
         }).catch(console.warn);
       } else if (tab === 'usuarios') {
         loadUsersDirectory();
@@ -1504,10 +1504,9 @@
       }
     }
 
-    // 4. CURSOS Y GLOSARIO
+    // 4. CURSOS
     function loadAdminCourses() {
       const container = document.getElementById('grid-admin-courses');
-      const select = document.getElementById('glossary-course-select');
 
       if (allCoursesCache.length === 0) {
         container.innerHTML = `<p style="color: var(--text-muted); grid-column: 1 / -1; text-align: center; padding: 30px;">No hay cursos registrados. Haz clic en '+ Nuevo Curso' para subir el primero.</p>`;
@@ -1539,11 +1538,7 @@
           </div>
         `).join('');
       }
-
-      select.innerHTML = allCoursesCache.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
     }
-
-    let removedCourseGlossaryIds = [];
 
     function escapeHtmlAttr(str) {
       if (!str) return '';
@@ -1553,76 +1548,6 @@
         .replace(/'/g, '&#39;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-    }
-
-    function addCourseGlossaryRow(term = '', def = '', id = '') {
-      const container = document.getElementById('course-glossary-container');
-      if (!container) return;
-      const row = document.createElement('div');
-      row.className = 'course-glossary-row';
-      row.dataset.glossaryId = id || '';
-      row.style.cssText = 'display: grid; grid-template-columns: 1fr 2fr 42px; gap: 8px; align-items: center;';
-      row.innerHTML = `
-        <input type="text" class="form-input glossary-term-input" placeholder="Término (ej: Binance)" value="${escapeHtmlAttr(term)}">
-        <input type="text" class="form-input glossary-def-input" placeholder="Definición directa..." value="${escapeHtmlAttr(def)}">
-        <button type="button" class="btn btn-danger" onclick="removeCourseGlossaryRow(this)" style="padding: 0; height: 38px; width: 42px; display: flex; align-items: center; justify-content: center; font-size: 1rem; border-radius: 6px;" title="Eliminar este término (-)">
-          ➖
-        </button>
-      `;
-      container.appendChild(row);
-      if (!term) {
-        const input = row.querySelector('.glossary-term-input');
-        if (input) input.focus();
-      }
-    }
-
-    function removeCourseGlossaryRow(btn) {
-      const container = document.getElementById('course-glossary-container');
-      const row = btn.closest('.course-glossary-row');
-      if (!row) return;
-
-      const existingId = row.dataset.glossaryId;
-      if (existingId) {
-        removedCourseGlossaryIds.push(existingId);
-      }
-
-      const allRows = container.querySelectorAll('.course-glossary-row');
-      if (allRows.length > 1) {
-        row.remove();
-      } else {
-        row.dataset.glossaryId = '';
-        row.querySelector('.glossary-term-input').value = '';
-        row.querySelector('.glossary-def-input').value = '';
-      }
-    }
-
-    function resetCourseGlossaryRows(existingTerms = []) {
-      const container = document.getElementById('course-glossary-container');
-      if (!container) return;
-      container.innerHTML = '';
-      removedCourseGlossaryIds = [];
-
-      if (existingTerms && existingTerms.length > 0) {
-        existingTerms.forEach(t => addCourseGlossaryRow(t.term, t.definition, t.id));
-      } else {
-        addCourseGlossaryRow();
-      }
-    }
-
-    function getCourseGlossaryValues() {
-      const container = document.getElementById('course-glossary-container');
-      if (!container) return [];
-      const rows = container.querySelectorAll('.course-glossary-row');
-      const list = [];
-      rows.forEach(r => {
-        const term = (r.querySelector('.glossary-term-input').value || '').trim();
-        const def = (r.querySelector('.glossary-def-input').value || '').trim();
-        const id = r.dataset.glossaryId || null;
-        if (term && def) {
-          list.push({ id, term, definition: def });
-        }
-      });
-      return list;
     }
 
     // -------------------------------------------------------------
@@ -1763,7 +1688,6 @@
       document.getElementById('modal-course-title').textContent = "📹 Publicar Nuevo Curso / Lección";
       document.getElementById('btn-save-course').textContent = "🚀 Publicar Curso en Profitivo";
       await loadCategoriesIntoSelect();
-      resetCourseGlossaryRows();
       document.getElementById('modal-add-course').classList.add('active');
     }
 
@@ -1782,9 +1706,6 @@
       document.getElementById('course-upload-status').style.display = 'none';
       document.getElementById('modal-course-title').textContent = "✏️ Editar Curso / Lección";
       document.getElementById('btn-save-course').textContent = "💾 Guardar Cambios del Curso";
-
-      const existingGlossary = await window.ProfitivoAPI.getCourseGlossary(c.id);
-      resetCourseGlossaryRows(existingGlossary);
 
       document.getElementById('modal-add-course').classList.add('active');
     }
@@ -1813,7 +1734,6 @@
       statusDiv.style.display = 'block';
 
       const isLifetime = document.getElementById('course-access-type').value === 'LIFETIME';
-      const glossaryList = getCourseGlossaryValues();
       const courseData = {
         title: document.getElementById('course-title').value.trim(),
         category: document.getElementById('course-category').value,
@@ -1822,7 +1742,7 @@
         price: isLifetime ? 0 : parseFloat(document.getElementById('course-price').value || 0),
         video_url: videoUrl,
         created_by: currentAdmin ? currentAdmin.username : 'Admin',
-        glossary_terms: glossaryList
+        glossary_terms: []
       };
       if (courseId) courseData.id = courseId;
 
@@ -1831,7 +1751,7 @@
 
         allCoursesCache = await window.ProfitivoAPI.getCourses(true);
         loadAdminCourses();
-        loadAdminGlossary(true);
+        loadAdminNews(true);
         loadUsersDirectory();
         closeModal('modal-add-course');
         showToast(courseId ? "¡Curso actualizado con éxito!" : "¡Curso publicado con éxito! Ya está disponible en el portal.");
@@ -1850,7 +1770,7 @@
         await window.ProfitivoAPI.deleteCourse(courseId);
         allCoursesCache = await window.ProfitivoAPI.getCourses(true);
         loadAdminCourses();
-        loadAdminGlossary(true);
+        loadAdminNews(true);
         loadUsersDirectory();
         showToast("Curso eliminado correctamente.");
       } catch (err) {
@@ -1858,27 +1778,43 @@
       }
     }
 
-    // 5. GLOSARIO DE CONCEPTOS
-    async function loadAdminGlossary(force = false) {
-      allGlossaryCache = await window.ProfitivoAPI.getAllGlossary(force);
-      const tbody = document.getElementById('tbody-admin-glossary');
-      if (allGlossaryCache.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay términos en el glosario registrados. Haz clic en '+ Agregar Término Glosario'.</td></tr>`;
+    // 5. NOTICIAS & TENDENCIAS TECNOLÓGICAS
+    async function loadAdminNews(force = false) {
+      allNewsCache = await window.ProfitivoAPI.getNews(force);
+      const tbody = document.getElementById('tbody-admin-news');
+      if (!tbody) return;
+
+      if (!allNewsCache || allNewsCache.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 25px;">No hay noticias registradas. Haz clic en '+ Nueva Noticia' para publicar la primera.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = allGlossaryCache.map(g => {
-        const course = allCoursesCache.find(c => c.id === g.course_id);
-        const courseTitle = course ? course.title : 'General / Multi-Curso';
+      tbody.innerHTML = allNewsCache.map(n => {
+        let badgeClass = 'badge-green';
+        const catLower = (n.category_name || '').toLowerCase();
+        if (catLower.includes('trading') || catLower.includes('finanza')) badgeClass = 'badge-gold';
+        else if (catLower.includes('cripto') || catLower.includes('web3')) badgeClass = 'badge-green';
+        else badgeClass = 'badge-blue';
+
+        const safeTitle = escapeHtmlAttr(n.title);
+        const safeDesc = escapeHtmlAttr(n.description);
+        const safeUrl = escapeHtmlAttr(n.url);
+        const safeCatName = escapeHtmlAttr(n.category_name || 'Tecnología');
+
         return `
           <tr>
-            <td><span class="badge badge-gold" style="font-size: 0.75rem;">${courseTitle}</span></td>
-            <td><strong style="color: var(--green-neon);">${g.term}</strong></td>
-            <td style="color: var(--text-secondary); font-size: 0.85rem; max-width: 400px;">${g.definition}</td>
+            <td><span class="badge ${badgeClass}" style="font-size: 0.75rem;">🏷️ ${safeCatName}</span></td>
+            <td><strong style="color: #fff; font-size: 0.95rem;">${safeTitle}</strong></td>
+            <td style="color: var(--text-secondary); font-size: 0.85rem; max-width: 340px; line-height: 1.4;">${safeDesc}</td>
+            <td>
+              <a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color: var(--green-neon); font-size: 0.8rem; text-decoration: none; display: flex; align-items: center; gap: 4px;" title="${safeUrl}">
+                🔗 Ver Fuente ↗
+              </a>
+            </td>
             <td>
               <div style="display: flex; gap: 6px;">
-                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem;" onclick="openEditGlossaryModal('${g.id}')">✏️ Editar</button>
-                <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="handleDeleteGlossary('${g.id}', '${g.term}')">🗑️</button>
+                <button class="btn btn-outline" style="padding: 4px 8px; font-size: 0.75rem;" onclick="openEditNewsModal('${n.id}')">✏️ Editar</button>
+                <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.75rem;" onclick="handleDeleteNews('${n.id}', '${safeTitle}')">🗑️</button>
               </div>
             </td>
           </tr>
@@ -1886,52 +1822,88 @@
       }).join('');
     }
 
-    function openAddGlossaryModal() {
-      document.getElementById('form-add-glossary').reset();
-      document.getElementById('glossary-id').value = '';
-      document.getElementById('modal-glossary-title').textContent = "Agregar Término al Glosario";
-      document.getElementById('btn-save-glossary').textContent = "Guardar Término";
-      document.getElementById('modal-add-glossary').classList.add('active');
-    }
+    async function populateNewsCategoriesSelect(selectedId = null) {
+      const select = document.getElementById('news-category-select');
+      if (!select) return;
+      if (!allCategoriesCache || allCategoriesCache.length === 0) {
+        allCategoriesCache = await window.ProfitivoAPI.getCategories();
+      }
+      select.innerHTML = allCategoriesCache.map(cat => `
+        <option value="${cat.id}">${escapeHtmlAttr(cat.name)}</option>
+      `).join('');
 
-    function openEditGlossaryModal(id) {
-      const g = allGlossaryCache.find(x => x.id === id);
-      if (!g) return;
-      document.getElementById('glossary-id').value = g.id;
-      document.getElementById('glossary-course-select').value = g.course_id;
-      document.getElementById('glossary-term').value = g.term || '';
-      document.getElementById('glossary-definition').value = g.definition || '';
-      document.getElementById('modal-glossary-title').textContent = "✏️ Editar Término del Glosario";
-      document.getElementById('btn-save-glossary').textContent = "💾 Actualizar Término";
-      document.getElementById('modal-add-glossary').classList.add('active');
-    }
-
-    async function handleAddGlossary(e) {
-      e.preventDefault();
-      const glossaryId = document.getElementById('glossary-id').value;
-      const termData = {
-        course_id: document.getElementById('glossary-course-select').value,
-        term: document.getElementById('glossary-term').value.trim(),
-        definition: document.getElementById('glossary-definition').value.trim()
-      };
-      if (glossaryId) termData.id = glossaryId;
-
-      try {
-        await window.ProfitivoAPI.saveGlossaryTerm(termData);
-        showToast(glossaryId ? "Término del glosario actualizado con éxito." : "Término añadido al glosario con éxito.");
-        closeModal('modal-add-glossary');
-        loadAdminGlossary(true);
-      } catch (err) {
-        showToast(err.message, true);
+      if (selectedId) {
+        select.value = selectedId;
       }
     }
 
-    async function handleDeleteGlossary(id, term) {
-      if (!confirm(`¿Estás seguro de eliminar el término "${term}" del glosario?`)) return;
+    async function openAddNewsModal() {
+      document.getElementById('form-add-news').reset();
+      document.getElementById('news-id').value = '';
+      document.getElementById('modal-news-title').innerHTML = "📰 Nueva Noticia Tecnológica";
+      document.getElementById('btn-save-news').textContent = "Guardar Noticia";
+      await populateNewsCategoriesSelect();
+      document.getElementById('modal-add-news').classList.add('active');
+    }
+
+    async function openEditNewsModal(id) {
+      const n = allNewsCache.find(x => x.id === id);
+      if (!n) return;
+      document.getElementById('news-id').value = n.id;
+      document.getElementById('news-title').value = n.title || '';
+      document.getElementById('news-description').value = n.description || '';
+      document.getElementById('news-url').value = n.url || '';
+      await populateNewsCategoriesSelect(n.category_id);
+      document.getElementById('modal-news-title').innerHTML = "✏️ Editar Noticia Tecnológica";
+      document.getElementById('btn-save-news').textContent = "💾 Actualizar Noticia";
+      document.getElementById('modal-add-news').classList.add('active');
+    }
+
+    async function handleAddNews(e) {
+      e.preventDefault();
+      const submitBtn = document.getElementById('btn-save-news');
+      const origText = submitBtn ? submitBtn.textContent : "Guardar Noticia";
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "⏳ Guardando...";
+      }
+
+      const newsId = document.getElementById('news-id').value;
+      const catSelect = document.getElementById('news-category-select');
+      const catId = catSelect.value;
+      const selectedOption = catSelect.options[catSelect.selectedIndex];
+      const catName = selectedOption ? selectedOption.text : 'Tecnología';
+
+      const newsData = {
+        title: document.getElementById('news-title').value.trim(),
+        category_id: catId,
+        category_name: catName,
+        description: document.getElementById('news-description').value.trim(),
+        url: document.getElementById('news-url').value.trim()
+      };
+      if (newsId) newsData.id = newsId;
+
       try {
-        await window.ProfitivoAPI.deleteGlossaryTerm(id);
-        showToast("Término eliminado del glosario.");
-        loadAdminGlossary(true);
+        await window.ProfitivoAPI.saveNews(newsData);
+        showToast(newsId ? "Noticia actualizada con éxito." : "Noticia publicada con éxito en el portal.");
+        closeModal('modal-add-news');
+        await loadAdminNews(true);
+      } catch (err) {
+        showToast(err.message, true);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = origText;
+        }
+      }
+    }
+
+    async function handleDeleteNews(id, title) {
+      if (!confirm(`¿Estás seguro de eliminar la noticia "${title}"?`)) return;
+      try {
+        await window.ProfitivoAPI.deleteNews(id);
+        showToast("Noticia eliminada correctamente.");
+        await loadAdminNews(true);
       } catch (err) {
         showToast(err.message, true);
       }

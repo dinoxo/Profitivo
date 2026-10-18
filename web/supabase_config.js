@@ -267,6 +267,24 @@ const ProfitivoCloudDB = {
       if (this._cache.lifetime_users && uid) {
         this._cache.lifetime_users = this._cache.lifetime_users.filter(id => id !== uid);
       }
+    } else if (action === 'SAVE_PAYMENT_METHOD') {
+      if (!this._cache.payment_methods) this._cache.payment_methods = [];
+      const idx = this._cache.payment_methods.findIndex(m => m.id === payload.id);
+      if (idx !== -1) this._cache.payment_methods[idx] = { ...this._cache.payment_methods[idx], ...payload };
+      else this._cache.payment_methods.push(payload);
+    } else if (action === 'DELETE_PAYMENT_METHOD') {
+      if (this._cache.payment_methods) {
+        this._cache.payment_methods = this._cache.payment_methods.filter(m => m.id !== payload.id);
+      }
+    } else if (action === 'SAVE_NEWS') {
+      if (!this._cache.news) this._cache.news = [];
+      const idx = this._cache.news.findIndex(n => n.id === payload.id);
+      if (idx !== -1) this._cache.news[idx] = { ...this._cache.news[idx], ...payload };
+      else this._cache.news.unshift(payload);
+    } else if (action === 'DELETE_NEWS') {
+      if (this._cache.news) {
+        this._cache.news = this._cache.news.filter(n => n.id !== payload.id);
+      }
     }
     this._lastUpdated = Date.now();
 
@@ -482,6 +500,15 @@ const ProfitivoCloudDB = {
           }
           if (db.lifetime_users && uid) {
             db.lifetime_users = db.lifetime_users.filter(id => id !== uid);
+          }
+        } else if (action === 'SAVE_NEWS') {
+          if (!db.news) db.news = [];
+          const idx = db.news.findIndex(n => n.id === payload.id);
+          if (idx !== -1) db.news[idx] = { ...db.news[idx], ...payload };
+          else db.news.unshift(payload);
+        } else if (action === 'DELETE_NEWS') {
+          if (db.news) {
+            db.news = db.news.filter(n => n.id !== payload.id);
           }
         }
 
@@ -895,22 +922,12 @@ const ProfitivoAPI = {
     return users[index];
   },
 
-  // Métodos de Pago Sanitizados y Sincronizados con la Nube Oficial
+  // Métodos de Pago Sanitizados y Sincronizados con la Nube Oficial (100% Cloud DB)
   getPaymentMethods: async (force = false) => {
-    let methodsList = [];
-    if (isSupabaseConfigured()) {
-      try {
-        const remote = await sbFetch('payment_methods?is_active=eq.true&order=sort_order.asc&select=*');
-        if (remote && remote.length > 0) methodsList = remote;
-      } catch (e) {}
-    }
+    const cloud = await ProfitivoCloudDB.fetchCloud(force);
+    let methodsList = (cloud && Array.isArray(cloud.payment_methods)) ? cloud.payment_methods : [];
 
-    if (!methodsList || methodsList.length === 0) {
-      const cloud = await ProfitivoCloudDB.fetchCloud(force);
-      methodsList = (cloud && Array.isArray(cloud.payment_methods)) ? cloud.payment_methods : [];
-    }
-
-    // Si la lista está vacía, cargar los predeterminados de la empresa
+    // Si la lista en la nube está vacía, cargar los predeterminados de la empresa
     if (!methodsList || methodsList.length === 0) {
       methodsList = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_METHODS) || '[]');
     }
@@ -1747,6 +1764,45 @@ const ProfitivoAPI = {
 
   addGlossaryTerm: async (termData) => {
     return ProfitivoAPI.saveGlossaryTerm(termData);
+  },
+
+  // Gestión de Noticias & Tendencias Tecnológicas 100% Web Sanitizadas
+  getNews: async (force = false) => {
+    const cloud = await ProfitivoCloudDB.fetchCloud(force);
+    return (cloud && Array.isArray(cloud.news)) ? cloud.news : [];
+  },
+
+  saveNews: async (newsData) => {
+    const newsId = newsData.id || ('news-' + Date.now());
+    const cleanTitle = Sanitizer.cleanText(newsData.title, 200);
+    const cleanCatId = Sanitizer.cleanText(newsData.category_id, 50);
+    const cleanCatName = Sanitizer.cleanText(newsData.category_name, 100);
+    const cleanDesc = Sanitizer.cleanText(newsData.description, 2000);
+    const cleanUrl = Sanitizer.cleanUrl(newsData.url);
+
+    if (!cleanTitle) throw new Error("El título de la noticia no puede estar vacío.");
+    if (!cleanCatId) throw new Error("Debes seleccionar una categoría para la noticia.");
+    if (!cleanDesc) throw new Error("La descripción de la noticia no puede estar vacía.");
+    if (!cleanUrl) throw new Error("El enlace o URL de la fuente es obligatorio y debe ser válido (http:// o https://).");
+
+    const newsItem = {
+      id: newsId,
+      title: cleanTitle,
+      category_id: cleanCatId,
+      category_name: cleanCatName || 'Tecnología',
+      description: cleanDesc,
+      url: cleanUrl,
+      created_at: newsData.created_at || new Date().toISOString()
+    };
+
+    await ProfitivoCloudDB.dispatch('SAVE_NEWS', newsItem);
+    return newsItem;
+  },
+
+  deleteNews: async (newsId) => {
+    const cleanId = Sanitizer.cleanText(newsId, 60);
+    await ProfitivoCloudDB.dispatch('DELETE_NEWS', { id: cleanId });
+    return true;
   },
 
   // Gestión de Categorías de Cursos 100% Web Sanitizadas
