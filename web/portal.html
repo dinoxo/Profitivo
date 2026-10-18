@@ -79,13 +79,21 @@
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <div class="form-group">
                   <label class="form-label">Método de Pago Utilizado:</label>
-                  <select id="rep-method-select" class="form-select" required onchange="updateMembershipMethodInfo()">
+                  <select id="rep-method-select" class="form-select" required onchange="window._userSelectedPaymentMethod = this.value; window._userSelectedUnlockMethod = this.value; updateMembershipMethodInfo()">
                     <!-- Opciones de métodos -->
                   </select>
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Número de Referencia (Solo números):</label>
-                  <input type="text" id="rep-ref" class="form-input" required placeholder="ej. 8839201" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onkeypress="return event.charCode >= 48 && event.charCode <= 57">
+                  <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Número de Referencia:</span>
+                    <span style="font-size: 0.72rem; color: var(--green-neon);">Pega con 1 clic</span>
+                  </label>
+                  <div style="display: flex; gap: 8px;">
+                    <input type="text" id="rep-ref" class="form-input" required placeholder="ej. 8839201" style="flex: 1;">
+                    <button type="button" class="btn btn-outline" onclick="pasteRefVal('rep-ref', this)" title="Pegar número de referencia del portapapeles" style="padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; border-color: var(--green-neon); color: var(--green-neon); white-space: nowrap;">
+                      <span>📥</span> <span>Pegar</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -273,7 +281,7 @@
 
         <div class="form-group">
           <label class="form-label">Método de Pago:</label>
-          <select id="unlock-method-select" class="form-select" required onchange="updateUnlockMethodInfo()"></select>
+          <select id="unlock-method-select" class="form-select" required onchange="window._userSelectedUnlockMethod = this.value; updateUnlockMethodInfo()"></select>
         </div>
 
         <div id="unlock-method-info" style="margin-bottom: 16px;"></div>
@@ -292,8 +300,16 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Número de Referencia (Solo números):</label>
-          <input type="text" id="unlock-ref" class="form-input" required placeholder="ej. 994012" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')" onkeypress="return event.charCode >= 48 && event.charCode <= 57">
+          <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Número de Referencia:</span>
+            <span style="font-size: 0.72rem; color: var(--gold-prestige);">Pega con 1 clic</span>
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="unlock-ref" class="form-input" required placeholder="ej. 994012" style="flex: 1;">
+            <button type="button" class="btn btn-outline" onclick="pasteRefVal('unlock-ref', this)" title="Pegar número de referencia del portapapeles" style="padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; border-color: var(--gold-prestige); color: var(--gold-prestige); white-space: nowrap;">
+              <span>📥</span> <span>Pegar</span>
+            </button>
+          </div>
         </div>
 
         <div class="form-group">
@@ -540,58 +556,149 @@
         return;
       }
 
-      if (container) {
-        container.innerHTML = paymentMethodsCache.map(m => `
-          <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; transition: border-color 0.2s ease;">
-            <div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <strong style="color: var(--green-neon); font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
-                  <span>💳</span> <span>${escapeHtmlAttr(m.title)}</span>
-                </strong>
-                <span class="badge badge-green" style="font-size: 0.72rem; padding: 2px 8px;">${escapeHtmlAttr(m.currency)}</span>
-              </div>
+      // Preservar la selección activa del estudiante si ya eligió algo
+      if (!window._userSelectedPaymentMethod && select && select.value) {
+        window._userSelectedPaymentMethod = select.value;
+      }
+      if (!window._userSelectedUnlockMethod && selectUnlock && selectUnlock.value) {
+        window._userSelectedUnlockMethod = selectUnlock.value;
+      }
 
-              <!-- Bloque del Número de Cuenta / Dirección de Wallet con botón Copiar -->
-              <div style="background: #0B1322; border: 1px solid rgba(0, 230, 118, 0.3); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                <div style="flex: 1; min-width: 0;">
-                  <div style="font-size: 0.68rem; color: var(--green-neon); text-transform: uppercase; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.5px;">
-                    🔑 Cuenta / Wallet / Teléfono:
-                  </div>
-                  <div class="copyable-data" style="font-family: monospace; font-size: 0.88rem; color: #fff; word-break: break-all; user-select: all; font-weight: 600;">
-                    ${escapeHtmlAttr(m.account_identifier)}
-                  </div>
+      // Firma de datos para evitar re-renderizados destructivos del DOM
+      const currentSignature = JSON.stringify(paymentMethodsCache.map(m => [m.id, m.title, m.currency, m.account_identifier, m.instructions]));
+
+      // Renderizar tarjetas solo si la lista cambió o es la primera carga
+      if (container && container.dataset.signature !== currentSignature) {
+        container.dataset.signature = currentSignature;
+        container.innerHTML = paymentMethodsCache.map(m => {
+          const isSelected = window._userSelectedPaymentMethod === m.title;
+          return `
+            <div id="card-pm-${m.id}" class="glass-card" style="padding: 20px; border-radius: 12px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; border-color: ${isSelected ? 'var(--green-neon)' : 'var(--border-subtle)'}; background: ${isSelected ? 'rgba(0, 230, 118, 0.05)' : '#060B14'}; transition: all 0.25s ease;">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <strong style="color: var(--green-neon); font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
+                    <span>💳</span> <span>${escapeHtmlAttr(m.title)}</span>
+                  </strong>
+                  <span class="badge badge-green" style="font-size: 0.72rem; padding: 2px 8px;">${escapeHtmlAttr(m.currency)}</span>
                 </div>
-                <button type="button" class="btn btn-primary" onclick="copyValue('${escapeJs(m.account_identifier)}', this)" title="Copiar número de cuenta / wallet" style="padding: 7px 12px; font-size: 0.8rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 0 10px rgba(0,230,118,0.25);">
-                  <span>📋</span> <span>Copiar</span>
-                </button>
-              </div>
 
-              <!-- Bloque de Instrucciones con botón Copiar (si existen) -->
-              ${m.instructions ? `
-                <div style="background: rgba(255,255,255,0.02); border: 1px dashed var(--border-subtle); border-radius: 8px; padding: 8px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                <!-- Bloque del Número de Cuenta / Dirección de Wallet con botón Copiar -->
+                <div style="background: #0B1322; border: 1px solid rgba(0, 230, 118, 0.3); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
                   <div style="flex: 1; min-width: 0;">
-                    <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 2px;">
-                      📝 Instrucciones:
+                    <div style="font-size: 0.68rem; color: var(--green-neon); text-transform: uppercase; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.5px;">
+                      🔑 Cuenta / Wallet / Teléfono:
                     </div>
-                    <div class="copyable-data" style="font-size: 0.82rem; color: var(--text-secondary); word-break: break-word; user-select: text;">
-                      ${escapeHtmlAttr(m.instructions)}
+                    <div class="copyable-data" style="font-family: monospace; font-size: 0.88rem; color: #fff; word-break: break-all; user-select: all; font-weight: 600;">
+                      ${escapeHtmlAttr(m.account_identifier)}
                     </div>
                   </div>
-                  <button type="button" class="btn btn-outline" onclick="copyValue('${escapeJs(m.instructions)}', this)" title="Copiar instrucciones" style="padding: 4px 8px; font-size: 0.75rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;">
+                  <button type="button" class="btn btn-primary" onclick="copyValue('${escapeJs(m.account_identifier)}', this)" title="Copiar número de cuenta / wallet" style="padding: 7px 12px; font-size: 0.8rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 0 10px rgba(0,230,118,0.25);">
                     <span>📋</span> <span>Copiar</span>
                   </button>
                 </div>
-              ` : ''}
+
+                <!-- Bloque de Instrucciones con botón Copiar (si existen) -->
+                ${m.instructions ? `
+                  <div style="background: rgba(255,255,255,0.02); border: 1px dashed var(--border-subtle); border-radius: 8px; padding: 8px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                    <div style="flex: 1; min-width: 0;">
+                      <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 2px;">
+                        📝 Instrucciones:
+                      </div>
+                      <div class="copyable-data" style="font-size: 0.82rem; color: var(--text-secondary); word-break: break-word; user-select: text;">
+                        ${escapeHtmlAttr(m.instructions)}
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-outline" onclick="copyValue('${escapeJs(m.instructions)}', this)" title="Copiar instrucciones" style="padding: 4px 8px; font-size: 0.75rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;">
+                      <span>📋</span> <span>Copiar</span>
+                    </button>
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Botón directo para seleccionar este método -->
+              <button type="button" class="btn ${isSelected ? 'btn-primary' : 'btn-outline'}" onclick="selectPaymentMethodDirectly('${escapeJs(m.title)}')" style="width: 100%; padding: 8px; font-size: 0.82rem; margin-top: 4px;">
+                ${isSelected ? '✔ Método Seleccionado para tu Pago' : 'Seleccionar este método para pagar ➔'}
+              </button>
             </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       }
 
+      // 4. Actualizar opciones de los selectores SIN perder jamás la selección del alumno
       const options = paymentMethodsCache.map(m => `<option value="${escapeHtmlAttr(m.title)}">${escapeHtmlAttr(m.title)} (${escapeHtmlAttr(m.currency)})</option>`).join('');
-      if (select) select.innerHTML = options;
-      if (selectUnlock) selectUnlock.innerHTML = options;
+
+      if (select) {
+        if (select.dataset.signature !== currentSignature) {
+          select.innerHTML = options;
+          select.dataset.signature = currentSignature;
+        }
+        // Determinar qué método debe mantenerse seleccionado
+        let targetVal = window._userSelectedPaymentMethod;
+        if (!targetVal || !paymentMethodsCache.some(m => m.title === targetVal)) {
+          targetVal = paymentMethodsCache[0] ? paymentMethodsCache[0].title : '';
+          window._userSelectedPaymentMethod = targetVal;
+        }
+        if (targetVal && select.value !== targetVal) {
+          select.value = targetVal;
+        }
+      }
+
+      if (selectUnlock) {
+        if (selectUnlock.dataset.signature !== currentSignature) {
+          selectUnlock.innerHTML = options;
+          selectUnlock.dataset.signature = currentSignature;
+        }
+        let targetUnlockVal = window._userSelectedUnlockMethod;
+        if (!targetUnlockVal || !paymentMethodsCache.some(m => m.title === targetUnlockVal)) {
+          targetUnlockVal = paymentMethodsCache[0] ? paymentMethodsCache[0].title : '';
+          window._userSelectedUnlockMethod = targetUnlockVal;
+        }
+        if (targetUnlockVal && selectUnlock.value !== targetUnlockVal) {
+          selectUnlock.value = targetUnlockVal;
+        }
+      }
+
       updateMembershipMethodInfo();
       updateUnlockMethodInfo();
+    }
+
+    function selectPaymentMethodDirectly(methodTitle) {
+      if (!methodTitle) return;
+      window._userSelectedPaymentMethod = methodTitle;
+      window._userSelectedUnlockMethod = methodTitle;
+      const select = document.getElementById('rep-method-select');
+      if (select) {
+        select.value = methodTitle;
+      }
+      const selectUnlock = document.getElementById('unlock-method-select');
+      if (selectUnlock) {
+        selectUnlock.value = methodTitle;
+      }
+      updateMembershipMethodInfo();
+      updateUnlockMethodInfo();
+      showToast(`✓ Método seleccionado: ${methodTitle}`);
+
+      const formBox = document.getElementById('form-report-membership');
+      if (formBox) {
+        formBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
+    function highlightSelectedMethodCard() {
+      const container = document.getElementById('portal-payment-methods');
+      if (!container || !paymentMethodsCache) return;
+      paymentMethodsCache.forEach(m => {
+        const card = document.getElementById(`card-pm-${m.id}`);
+        if (!card) return;
+        const isSelected = window._userSelectedPaymentMethod === m.title;
+        card.style.borderColor = isSelected ? 'var(--green-neon)' : 'var(--border-subtle)';
+        card.style.background = isSelected ? 'rgba(0, 230, 118, 0.05)' : '#060B14';
+        const btn = card.querySelector('button:last-child');
+        if (btn) {
+          btn.className = isSelected ? 'btn btn-primary' : 'btn btn-outline';
+          btn.innerHTML = isSelected ? '✔ Método Seleccionado para tu Pago' : 'Seleccionar este método para pagar ➔';
+        }
+      });
     }
 
     function renderMethodDetailsCard(m, accentColor = 'var(--green-neon)') {
@@ -645,7 +752,11 @@
       const select = document.getElementById('rep-method-select');
       const box = document.getElementById('rep-selected-method-box');
       if (!select || !box) return;
-      const selectedTitle = select.value;
+
+      if (select.value) {
+        window._userSelectedPaymentMethod = select.value;
+      }
+      const selectedTitle = window._userSelectedPaymentMethod || select.value;
       const m = (paymentMethodsCache || []).find(x => x.title === selectedTitle) || (paymentMethodsCache && paymentMethodsCache[0]);
       if (!m) {
         box.style.display = 'none';
@@ -653,13 +764,18 @@
       }
       box.style.display = 'block';
       box.innerHTML = renderMethodDetailsCard(m, 'var(--green-neon)');
+      highlightSelectedMethodCard();
     }
 
     function updateUnlockMethodInfo() {
       const selectUnlock = document.getElementById('unlock-method-select');
       const box = document.getElementById('unlock-method-info');
       if (!selectUnlock || !box) return;
-      const selectedTitle = selectUnlock.value;
+
+      if (selectUnlock.value) {
+        window._userSelectedUnlockMethod = selectUnlock.value;
+      }
+      const selectedTitle = window._userSelectedUnlockMethod || selectUnlock.value;
       const m = (paymentMethodsCache || []).find(x => x.title === selectedTitle) || (paymentMethodsCache && paymentMethodsCache[0]);
       if (!m) {
         box.style.display = 'none';
@@ -723,6 +839,44 @@
         showToast("Error al copiar texto.", true);
       }
       document.body.removeChild(ta);
+    }
+
+    async function pasteRefVal(inputId, btnEl) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      let text = null;
+      try {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          text = await navigator.clipboard.readText();
+        }
+      } catch (err) {
+        console.warn("Acceso a clipboard readText no otorgado automáticamente:", err);
+      }
+
+      if (!text) {
+        text = prompt("Pega aquí tu número o código de referencia:");
+      }
+
+      if (text && text.trim()) {
+        const clean = text.trim();
+        el.value = clean;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        showToast("✓ Referencia pegada 📥");
+        if (btnEl) {
+          const orig = btnEl.innerHTML;
+          btnEl.innerHTML = '✔ ¡Pegado!';
+          btnEl.style.borderColor = 'var(--green-neon)';
+          btnEl.style.color = 'var(--green-neon)';
+          setTimeout(() => {
+            btnEl.innerHTML = orig;
+            btnEl.style.borderColor = '';
+            btnEl.style.color = '';
+          }, 1800);
+        }
+      } else if (text !== null) {
+        showToast("Portapapeles vacío o sin texto.", true);
+      }
     }
 
     function escapeJs(str) {
@@ -1156,6 +1310,13 @@
       document.getElementById('unlock-modal-title').textContent = `Desbloquear: ${title}`;
       const priceNum = Math.max(0, parseFloat(price) || 0);
       document.getElementById('unlock-amount').value = `$${priceNum.toFixed(2)} USDT`;
+      
+      const selectUnlock = document.getElementById('unlock-method-select');
+      const preferred = window._userSelectedUnlockMethod || window._userSelectedPaymentMethod;
+      if (selectUnlock && preferred) {
+        selectUnlock.value = preferred;
+        window._userSelectedUnlockMethod = preferred;
+      }
       updateUnlockMethodInfo();
       document.getElementById('modal-unlock-course').classList.add('active');
     }
