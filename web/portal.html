@@ -15,7 +15,7 @@
   <!-- Barra de Navegación -->
   <header class="navbar">
     <div class="container nav-content">
-      <a href="portal.html" class="nav-brand">
+      <a href="index.html" class="nav-brand">
         <img src="logo.png" alt="Profitivo Logo" class="nav-logo-img">
         <div>
           <span class="brand-text" style="font-size: 1.2rem; color: #fff;">PROFITIVO</span>
@@ -218,8 +218,10 @@
 
         <div class="form-group">
           <label class="form-label">Método de Pago:</label>
-          <select id="unlock-method-select" class="form-select" required></select>
+          <select id="unlock-method-select" class="form-select" required onchange="updateUnlockMethodInfo()"></select>
         </div>
+
+        <div id="unlock-method-info" style="margin-bottom: 16px;"></div>
 
         <div class="form-group">
           <label class="form-label">Monto Oficial del Curso ($ USD / USDT):</label>
@@ -376,10 +378,8 @@
       }
 
       // Cargar métodos de pago y precio oficial de membresía
-      await updateLivePrices();
-
-      paymentMethodsCache = await window.ProfitivoAPI.getPaymentMethods();
-      renderPaymentMethods();
+      await updateLivePrices(true);
+      await renderPaymentMethods(true);
 
       // Verificar estado de membresía
       await refreshUserState();
@@ -387,10 +387,12 @@
       // Poller automático continuo cada 6 segundos para sincronizar en tiempo real:
       // 1. Precios de membresía y cursos si el admin los cambia
       // 2. Estado de aprobación si el estudiante tiene pagos pendientes
+      // 3. Métodos de pago en vivo
       if (!window._portalGlobalPoller) {
         window._portalGlobalPoller = setInterval(async () => {
           try {
             await updateLivePrices(true);
+            await renderPaymentMethods(true);
             if (currentUser && !currentUser.is_lifetime_active) {
               await refreshUserState();
             }
@@ -456,27 +458,68 @@
       }
     }
 
-    function renderPaymentMethods() {
+    async function renderPaymentMethods(force = false) {
       const container = document.getElementById('portal-payment-methods');
       const select = document.getElementById('rep-method-select');
       const selectUnlock = document.getElementById('unlock-method-select');
 
-      container.innerHTML = paymentMethodsCache.map(m => `
-        <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 18px; border-radius: 10px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <strong style="color: var(--green-neon); font-size: 0.95rem;">${m.title}</strong>
-            <span class="badge badge-green">${m.currency}</span>
+      try {
+        paymentMethodsCache = await window.ProfitivoAPI.getPaymentMethods(force);
+      } catch (e) {
+        console.warn("Fallo cargando métodos de pago:", e);
+      }
+
+      if (!paymentMethodsCache || paymentMethodsCache.length === 0) {
+        if (container) {
+          container.innerHTML = `<p style="color: var(--text-muted); grid-column: 1 / -1; text-align: center; padding: 20px;">No hay métodos de pago configurados en este momento.</p>`;
+        }
+        return;
+      }
+
+      if (container) {
+        container.innerHTML = paymentMethodsCache.map(m => `
+          <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 18px; border-radius: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <strong style="color: var(--green-neon); font-size: 0.95rem;">${m.title}</strong>
+              <span class="badge badge-green">${m.currency}</span>
+            </div>
+            <p style="font-family: monospace; background: #0B1322; padding: 6px 8px; border-radius: 6px; font-size: 0.85rem; color: #fff; word-break: break-all; margin-bottom: 8px;">
+              ${m.account_identifier}
+            </p>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">${m.instructions || ''}</p>
           </div>
-          <p style="font-family: monospace; background: #0B1322; padding: 6px 8px; border-radius: 6px; font-size: 0.85rem; color: #fff; word-break: break-all; margin-bottom: 8px;">
-            ${m.account_identifier}
-          </p>
-          <p style="font-size: 0.8rem; color: var(--text-muted);">${m.instructions}</p>
-        </div>
-      `).join('');
+        `).join('');
+      }
 
       const options = paymentMethodsCache.map(m => `<option value="${m.title}">${m.title} (${m.currency})</option>`).join('');
-      select.innerHTML = options;
-      selectUnlock.innerHTML = options;
+      if (select) select.innerHTML = options;
+      if (selectUnlock) selectUnlock.innerHTML = options;
+      updateUnlockMethodInfo();
+    }
+
+    function updateUnlockMethodInfo() {
+      const selectUnlock = document.getElementById('unlock-method-select');
+      const box = document.getElementById('unlock-method-info');
+      if (!selectUnlock || !box) return;
+      const selectedTitle = selectUnlock.value;
+      const m = (paymentMethodsCache || []).find(x => x.title === selectedTitle) || (paymentMethodsCache && paymentMethodsCache[0]);
+      if (!m) {
+        box.style.display = 'none';
+        return;
+      }
+      box.style.display = 'block';
+      box.innerHTML = `
+        <div style="background: #060B14; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong style="color: var(--green-neon); font-size: 0.9rem;">${m.title}</strong>
+            <span class="badge badge-green" style="font-size: 0.7rem;">${m.currency}</span>
+          </div>
+          <p style="font-family: monospace; background: #0B1322; padding: 6px 8px; border-radius: 6px; font-size: 0.85rem; color: #fff; word-break: break-all; margin: 4px 0 8px;">
+            ${m.account_identifier}
+          </p>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">${m.instructions || ''}</p>
+        </div>
+      `;
     }
 
     // Previsualización y testeo de compresión antes de enviar
@@ -497,6 +540,13 @@
     // Reportar Pago de Membresía
     async function handleReportPayment(e, type) {
       e.preventDefault();
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const origText = submitBtn ? submitBtn.innerHTML : 'Enviar Comprobante a los Administradores ↗';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⏳ Enviando Comprobante... Por favor espera';
+      }
+
       const fileInput = document.getElementById('rep-file');
       const file = fileInput.files[0];
 
@@ -523,10 +573,17 @@
 
       try {
         await window.ProfitivoAPI.reportPayment(reportData, file);
-        showToast("¡Comprobante enviado a revisión!");
-        setTimeout(() => refreshUserState(), 1000);
+        showToast("¡Comprobante enviado a revisión con éxito!");
+        if (submitBtn) {
+          submitBtn.innerHTML = '✔ ¡Comprobante Enviado!';
+        }
+        setTimeout(() => refreshUserState(), 1200);
       } catch (err) {
         showToast(err.message, true);
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origText;
+        }
       }
     }
 
@@ -792,11 +849,19 @@
       document.getElementById('unlock-modal-title').textContent = `Desbloquear: ${title}`;
       const priceNum = Math.max(0, parseFloat(price) || 0);
       document.getElementById('unlock-amount').value = `$${priceNum.toFixed(2)} USDT`;
+      updateUnlockMethodInfo();
       document.getElementById('modal-unlock-course').classList.add('active');
     }
 
     async function handleReportCoursePayment(e) {
       e.preventDefault();
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const origText = submitBtn ? submitBtn.innerHTML : 'Reportar Pago del Curso ↗';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '⏳ Enviando Comprobante... Por favor espera';
+      }
+
       const courseId = document.getElementById('unlock-course-id').value;
       const courseTitle = document.getElementById('unlock-course-name').value;
       const file = document.getElementById('unlock-file').files[0];
@@ -826,10 +891,16 @@
 
       try {
         await window.ProfitivoAPI.reportPayment(reportData, file);
-        showToast("Comprobante del curso enviado a los administradores.");
+        showToast("Comprobante del curso enviado a los administradores con éxito.");
         closeModal('modal-unlock-course');
+        e.target.reset();
       } catch (err) {
         showToast(err.message, true);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origText;
+        }
       }
     }
 

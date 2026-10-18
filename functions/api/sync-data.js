@@ -117,6 +117,7 @@ function applyActionToDb(db, action, payload) {
   if (!db.settings) db.settings = { membership_price: 50.00, currency: 'USDT' };
   if (!db.orders) db.orders = [];
   if (!db.lifetime_users) db.lifetime_users = [];
+  if (!db.payment_methods) db.payment_methods = [];
 
   if (action === 'SAVE_COURSE') {
     const course = {
@@ -409,6 +410,30 @@ function applyActionToDb(db, action, payload) {
         return true;
       });
     }
+  } else if (action === 'SAVE_PAYMENT_METHOD') {
+    if (!db.payment_methods) db.payment_methods = [];
+    const method = {
+      id: sanitizeServerText(payload.id, 60) || ('pm-' + Date.now()),
+      title: sanitizeServerText(payload.title, 100),
+      method_type: sanitizeServerText(payload.method_type, 40) || 'PAGO_MOVIL',
+      currency: sanitizeServerText(payload.currency, 20) || 'USDT',
+      account_identifier: sanitizeServerText(payload.account_identifier, 300),
+      network: sanitizeServerText(payload.network, 100),
+      account_holder: sanitizeServerText(payload.account_holder, 150),
+      instructions: sanitizeServerText(payload.instructions, 1500),
+      qr_image_url: sanitizeServerUrl(payload.qr_image_url) || 'logo.png',
+      is_active: payload.is_active !== false && payload.is_active !== 'false'
+    };
+    const idx = db.payment_methods.findIndex(m => m.id === method.id);
+    if (idx !== -1) {
+      db.payment_methods[idx] = { ...db.payment_methods[idx], ...method };
+    } else {
+      db.payment_methods.push(method);
+    }
+  } else if (action === 'DELETE_PAYMENT_METHOD') {
+    if (!db.payment_methods) db.payment_methods = [];
+    const methodId = sanitizeServerText(payload.id, 60);
+    db.payment_methods = db.payment_methods.filter(m => m.id !== methodId);
   }
 }
 
@@ -422,7 +447,8 @@ async function writeToGitHubWithRetry(action, payload, maxRetries = 3) {
       categories: [],
       user_access_map: {},
       orders: [],
-      settings: { membership_price: 50.00, currency: 'USDT' }
+      settings: { membership_price: 50.00, currency: 'USDT' },
+      payment_methods: []
     };
 
     applyActionToDb(db, action, payload);

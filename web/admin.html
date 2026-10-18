@@ -48,7 +48,7 @@
   <!-- Barra de Navegación -->
   <header class="navbar">
     <div class="container nav-content">
-      <a href="admin.html" class="nav-brand">
+      <a href="index.html" class="nav-brand">
         <img src="logo.png" alt="Profitivo Logo" class="nav-logo-img">
         <div>
           <span class="brand-text" style="font-size: 1.2rem; color: #fff;">PROFITIVO</span>
@@ -833,6 +833,8 @@
         }).catch(console.warn);
       } else if (tab === 'usuarios') {
         loadUsersDirectory();
+      } else if (tab === 'metodos') {
+        loadAdminMethods(true);
       }
     }
 
@@ -1226,8 +1228,8 @@
     }
 
     // 3. MÉTODOS DE PAGO
-    async function loadAdminMethods() {
-      allMethodsCache = await window.ProfitivoAPI.getPaymentMethods();
+    async function loadAdminMethods(force = false) {
+      allMethodsCache = await window.ProfitivoAPI.getPaymentMethods(force);
       const container = document.getElementById('grid-admin-methods');
       if (allMethodsCache.length === 0) {
         container.innerHTML = `<p style="color: var(--text-muted); grid-column: 1 / -1; text-align: center; padding: 30px;">No hay métodos de pago configurados. Haz clic en '+ Nuevo Método' para agregar uno.</p>`;
@@ -1286,6 +1288,13 @@
 
     async function handleAddMethod(e) {
       e.preventDefault();
+      const submitBtn = document.getElementById('btn-save-method');
+      const origText = submitBtn ? submitBtn.textContent : "Guardar Método";
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "⏳ Guardando...";
+      }
+
       const methodId = document.getElementById('method-id').value;
       const data = {
         title: document.getElementById('method-title').value.trim(),
@@ -1301,9 +1310,14 @@
         await window.ProfitivoAPI.savePaymentMethod(data);
         showToast(methodId ? "Método de pago actualizado correctamente." : "Método de pago guardado.");
         closeModal('modal-add-method');
-        loadAdminMethods();
+        await loadAdminMethods(true);
       } catch (err) {
         showToast(err.message, true);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = origText;
+        }
       }
     }
 
@@ -1312,7 +1326,7 @@
       try {
         await window.ProfitivoAPI.deletePaymentMethod(id);
         showToast("Método de pago eliminado.");
-        loadAdminMethods();
+        await loadAdminMethods(true);
       } catch (err) {
         showToast(err.message, true);
       }

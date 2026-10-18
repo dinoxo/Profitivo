@@ -106,7 +106,16 @@ const ProfitivoCloudDB = {
     if (!this._cache) {
       this._cache = { courses: [], glossary: [], categories: [], user_access_map: {} };
     }
-    if (action === 'SAVE_CATEGORY') {
+    if (action === 'SAVE_PAYMENT_METHOD') {
+      if (!this._cache.payment_methods) this._cache.payment_methods = [];
+      const idx = this._cache.payment_methods.findIndex(m => m.id === payload.id);
+      if (idx !== -1) this._cache.payment_methods[idx] = { ...this._cache.payment_methods[idx], ...payload };
+      else this._cache.payment_methods.push(payload);
+    } else if (action === 'DELETE_PAYMENT_METHOD') {
+      if (this._cache.payment_methods) {
+        this._cache.payment_methods = this._cache.payment_methods.filter(m => m.id !== payload.id);
+      }
+    } else if (action === 'SAVE_CATEGORY') {
       if (!this._cache.categories) this._cache.categories = [];
       const idx = this._cache.categories.findIndex(c => c.id === payload.id);
       if (idx !== -1) this._cache.categories[idx] = { ...this._cache.categories[idx], ...payload };
@@ -308,6 +317,15 @@ const ProfitivoCloudDB = {
                 db.user_access_map[uid] = db.user_access_map[uid].filter(id => id !== payload.id);
               }
             }
+          }
+        } else if (action === 'SAVE_PAYMENT_METHOD') {
+          if (!db.payment_methods) db.payment_methods = [];
+          const idx = db.payment_methods.findIndex(m => m.id === payload.id);
+          if (idx !== -1) db.payment_methods[idx] = { ...db.payment_methods[idx], ...payload };
+          else db.payment_methods.push(payload);
+        } else if (action === 'DELETE_PAYMENT_METHOD') {
+          if (db.payment_methods) {
+            db.payment_methods = db.payment_methods.filter(m => m.id !== payload.id);
           }
         } else if (action === 'SAVE_GLOSSARY') {
           const idx = db.glossary.findIndex(g => g.id === payload.id);
@@ -877,13 +895,27 @@ const ProfitivoAPI = {
     return users[index];
   },
 
-  // Métodos de Pago Sanitizados
-  getPaymentMethods: async () => {
+  // Métodos de Pago Sanitizados y Sincronizados con la Nube Oficial
+  getPaymentMethods: async (force = false) => {
+    let methodsList = [];
     if (isSupabaseConfigured()) {
-      const remote = await sbFetch('payment_methods?is_active=eq.true&order=sort_order.asc&select=*');
-      if (remote && remote.length > 0) return remote;
+      try {
+        const remote = await sbFetch('payment_methods?is_active=eq.true&order=sort_order.asc&select=*');
+        if (remote && remote.length > 0) methodsList = remote;
+      } catch (e) {}
     }
-    return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_METHODS) || '[]');
+
+    if (!methodsList || methodsList.length === 0) {
+      const cloud = await ProfitivoCloudDB.fetchCloud(force);
+      methodsList = (cloud && Array.isArray(cloud.payment_methods)) ? cloud.payment_methods : [];
+    }
+
+    // Si la lista está vacía, cargar los predeterminados de la empresa
+    if (!methodsList || methodsList.length === 0) {
+      methodsList = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_METHODS) || '[]');
+    }
+
+    return (methodsList || []).filter(m => m.is_active !== false && m.is_active !== 'false');
   },
 
   savePaymentMethod: async (methodData) => {
@@ -895,34 +927,6 @@ const ProfitivoAPI = {
     const cleanIdent = Sanitizer.cleanText(methodData.account_identifier, 200);
     const cleanInstructions = Sanitizer.cleanText(methodData.instructions, 1000);
 
-    if (isSupabaseConfigured()) {
-      if (isEdit) {
-        await sbFetch(`payment_methods?id=eq.${methodId}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            title: cleanTitle,
-            method_type: cleanType,
-            currency: cleanCurr,
-            account_identifier: cleanIdent,
-            instructions: cleanInstructions
-          })
-        });
-      } else {
-        await sbFetch('payment_methods', {
-          method: 'POST',
-          body: JSON.stringify({
-            title: cleanTitle,
-            method_type: cleanType,
-            currency: cleanCurr,
-            account_identifier: cleanIdent,
-            instructions: cleanInstructions,
-            is_active: true
-          })
-        });
-      }
-    }
-
-    const methods = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_METHODS) || '[]');
     const newMethod = {
       id: methodId,
       title: cleanTitle,
@@ -934,25 +938,54 @@ const ProfitivoAPI = {
       is_active: true
     };
 
-    if (isEdit) {
+    // 1. Guardar en la nube oficial de Profitivo (persistente para todos los dispositivos)
+    await ProfitivoCloudDB.dispatch('SAVE_PAYMENT_METHOD', newMethod);
+
+    // 2. Fallback Supabase si estuviese configurado
+    if (isSupabaseConfigured()) {
+      try {
+        if (isEdit) {
+          await sbFetch(`payment_methods?id=eq.${methodId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(newMethod)
+          });
+        } else {
+          await sbFetch('payment_methods', {
+            method: 'POST',
+            body: JSON.stringify(newMethod)
+          });
+        }
+      } catch (e) {}
+    }
+
+    // 3. Almacenamiento local como espejo
+    try {
+      const methods = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_METHODS) || '[]');
       const idx = methods.findIndex(m => m.id === methodId);
       if (idx !== -1) methods[idx] = { ...methods[idx], ...newMethod };
       else methods.push(newMethod);
-    } else {
-      methods.push(newMethod);
-    }
+      localStorage.setItem(LOCAL_STORAGE_KEY_METHODS, JSON.stringify(methods));
+    } catch (e) {}
 
-    localStorage.setItem(LOCAL_STORAGE_KEY_METHODS, JSON.stringify(methods));
     return newMethod;
   },
 
   deletePaymentMethod: async (methodId) => {
+    // 1. Eliminar en la nube oficial
+    await ProfitivoCloudDB.dispatch('DELETE_PAYMENT_METHOD', { id: methodId });
+
     if (isSupabaseConfigured()) {
-      await sbFetch(`payment_methods?id=eq.${methodId}`, { method: 'DELETE' });
+      try {
+        await sbFetch(`payment_methods?id=eq.${methodId}`, { method: 'DELETE' });
+      } catch (e) {}
     }
-    let methods = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_METHODS) || '[]');
-    methods = methods.filter(m => m.id !== methodId);
-    localStorage.setItem(LOCAL_STORAGE_KEY_METHODS, JSON.stringify(methods));
+
+    try {
+      let methods = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_METHODS) || '[]');
+      methods = methods.filter(m => m.id !== methodId);
+      localStorage.setItem(LOCAL_STORAGE_KEY_METHODS, JSON.stringify(methods));
+    } catch (e) {}
+
     return true;
   },
 
