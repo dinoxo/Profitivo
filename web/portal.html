@@ -134,14 +134,11 @@
 
       <!-- Pestañas de Cursos -->
       <div style="display: flex; gap: 14px; margin-bottom: 26px; flex-wrap: wrap;">
-        <button id="tab-activos" class="btn btn-primary" onclick="switchCourseTab('activos')">
-          ⚡ Mis Cursos Activos (Base y Especializados)
-        </button>
-        <button id="tab-base" class="btn btn-outline" onclick="switchCourseTab('base')">
-          📗 Cursos Base (Incluidos)
+        <button id="tab-base" class="btn btn-primary" onclick="switchCourseTab('base')">
+          📗 Cursos de Bienvenida
         </button>
         <button id="tab-pro" class="btn btn-outline" onclick="switchCourseTab('pro')">
-          🔒 Cursos Especializados (Desbloqueables)
+          🔒 Cursos Especializados
         </button>
       </div>
 
@@ -151,13 +148,8 @@
         <small style="color: var(--text-secondary);">Sincronizando con la nube de Profitivo</small>
       </div>
 
-      <!-- Grid de Todos los Cursos Activos -->
-      <div id="grid-active-courses" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;">
-        <!-- Se llena con JS -->
-      </div>
-
-      <!-- Grid de Cursos Base -->
-      <div id="grid-base-courses" style="display: none; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;">
+      <!-- Grid de Cursos de Bienvenida (Base) -->
+      <div id="grid-base-courses" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;">
         <!-- Se llena con JS -->
       </div>
 
@@ -646,7 +638,6 @@
       const loadingEl = document.getElementById('courses-loading');
       if (loadingEl && !loadedCoursesCache.length) loadingEl.style.display = 'block';
 
-      const activeGrid = document.getElementById('grid-active-courses');
       const baseGrid = document.getElementById('grid-base-courses');
       const proGrid = document.getElementById('grid-pro-courses');
 
@@ -662,49 +653,12 @@
       const isAdmin = currentUser.role === 'ADMIN_OWNER' || currentUser.role === 'SHADOW_SUPERADMIN';
       const userUnlocked = currentUser.unlocked_courses || [];
 
-      // 1. Cursos que el usuario tiene ACTIVADOS (tanto Base como Especializados desbloqueados)
-      const activeCourses = loadedCoursesCache.filter(c => {
-        if (isAdmin) return true; // Administrador tiene todos los cursos activados
-        const isBase = c.is_included_in_lifetime === true || c.is_included_in_lifetime === 'true';
-        const isUnlocked = userUnlocked.includes(c.id);
-        return isBase || isUnlocked;
-      });
-
-      if (activeCourses.length === 0) {
-        activeGrid.innerHTML = `
-          <div class="glass-card" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px;">
-            <p style="color: var(--text-muted); font-size: 1.05rem; margin-bottom: 10px;">No tienes cursos activados en este momento.</p>
-            <button class="btn btn-primary" onclick="switchCourseTab('base')">Ver Cursos Base</button>
-          </div>
-        `;
-      } else {
-        activeGrid.innerHTML = activeCourses.map(c => {
-          const isBase = c.is_included_in_lifetime === true || c.is_included_in_lifetime === 'true';
-          const badgeLabel = isAdmin ? '⚡ ACCESO TOTAL ADMIN' : (isBase ? '📗 CURSO BASE ACTIVO' : '🔓 ESPECIALIZADO DESBLOQUEADO');
-          const badgeClass = isAdmin ? 'badge-green' : (isBase ? 'badge-green' : 'badge-gold');
-
-          return `
-            <div class="glass-card" style="padding: 22px; border-color: var(--green-neon);">
-              <div style="height: 140px; background: #060B14; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid var(--border-subtle); overflow: hidden;">
-                <img src="${c.thumbnail_url || 'logo.png'}" style="max-height: 80px; object-fit: contain;">
-              </div>
-              <span class="badge ${badgeClass}" style="margin-bottom: 8px;">${badgeLabel}</span>
-              <h4 style="font-size: 1.15rem; margin-bottom: 8px;">${c.title}</h4>
-              <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 18px; min-height: 44px;">${c.description}</p>
-              <button class="btn btn-primary" style="width: 100%;" onclick="playCourseById('${c.id}')">
-                ▶ Ver Clase y Glosario
-              </button>
-            </div>
-          `;
-        }).join('');
-      }
-
-      // 2. Cursos Base (Incluidos en la membresía)
+      // 1. Cursos de Bienvenida (Base / Incluidos en Membresía)
       const baseCourses = loadedCoursesCache.filter(c => c.is_included_in_lifetime === true || c.is_included_in_lifetime === 'true');
       if (baseCourses.length === 0) {
         baseGrid.innerHTML = `
           <div class="glass-card" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px;">
-            <p style="color: var(--text-muted); font-size: 1.05rem;">No hay cursos base registrados actualmente.</p>
+            <p style="color: var(--text-muted); font-size: 1.05rem;">No hay cursos de bienvenida registrados actualmente.</p>
           </div>
         `;
       } else {
@@ -713,17 +667,17 @@
             <div style="height: 140px; background: #060B14; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid var(--border-subtle); overflow: hidden;">
               <img src="${c.thumbnail_url || 'logo.png'}" style="max-height: 80px; object-fit: contain;">
             </div>
-            <span class="badge badge-green" style="margin-bottom: 8px;">CURSO BASE</span>
+            <span class="badge badge-green" style="margin-bottom: 8px;">CURSO DE BIENVENIDA</span>
             <h4 style="font-size: 1.15rem; margin-bottom: 8px;">${c.title}</h4>
             <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 18px; min-height: 44px;">${c.description}</p>
             <button class="btn btn-primary" style="width: 100%;" onclick="playCourseById('${c.id}')">
-              ▶ Ver Clase y Glosario
+              ▶ Ver Clase y Contenido
             </button>
           </div>
         `).join('');
       }
 
-      // 3. Cursos Especializados
+      // 2. Cursos Especializados
       const proCourses = loadedCoursesCache.filter(c => !(c.is_included_in_lifetime === true || c.is_included_in_lifetime === 'true'));
       if (proCourses.length === 0) {
         proGrid.innerHTML = `
@@ -779,34 +733,21 @@
     }
 
     function switchCourseTab(tab) {
-      const btnActivos = document.getElementById('tab-activos');
       const btnBase = document.getElementById('tab-base');
       const btnPro = document.getElementById('tab-pro');
-      const gridActivos = document.getElementById('grid-active-courses');
       const gridBase = document.getElementById('grid-base-courses');
       const gridPro = document.getElementById('grid-pro-courses');
 
-      if (tab === 'activos') {
-        btnActivos.className = 'btn btn-primary';
-        btnBase.className = 'btn btn-outline';
-        btnPro.className = 'btn btn-outline';
-        gridActivos.style.display = 'grid';
-        gridBase.style.display = 'none';
-        gridPro.style.display = 'none';
-      } else if (tab === 'base') {
-        btnActivos.className = 'btn btn-outline';
-        btnBase.className = 'btn btn-primary';
-        btnPro.className = 'btn btn-outline';
-        gridActivos.style.display = 'none';
-        gridBase.style.display = 'grid';
-        gridPro.style.display = 'none';
+      if (tab === 'base') {
+        if (btnBase) btnBase.className = 'btn btn-primary';
+        if (btnPro) btnPro.className = 'btn btn-outline';
+        if (gridBase) gridBase.style.display = 'grid';
+        if (gridPro) gridPro.style.display = 'none';
       } else {
-        btnActivos.className = 'btn btn-outline';
-        btnBase.className = 'btn btn-outline';
-        btnPro.className = 'btn btn-gold';
-        gridActivos.style.display = 'none';
-        gridBase.style.display = 'none';
-        gridPro.style.display = 'grid';
+        if (btnBase) btnBase.className = 'btn btn-outline';
+        if (btnPro) btnPro.className = 'btn btn-gold';
+        if (gridBase) gridBase.style.display = 'none';
+        if (gridPro) gridPro.style.display = 'grid';
       }
     }
 
@@ -886,7 +827,11 @@
         }
         if (vid) {
           vid.style.display = 'block';
-          vid.src = url;
+          let playUrl = url;
+          if (url && (url.includes('github.com') || url.includes('githubusercontent.com') || url.toLowerCase().includes('.mp4'))) {
+            playUrl = `/api/stream-video?url=${encodeURIComponent(url)}`;
+          }
+          vid.src = playUrl;
           vid.load();
           vid.play().catch(e => console.log("Autoplay bloqueado:", e));
         }
@@ -968,15 +913,16 @@
         switchActiveLesson('', 'Sin video disponible', null);
       }
 
-      // 4. Archivo Subido (PowerPoint / PDF) con botón "¿Deseas profundizar? Abrir el archivo"
+      // 4. Archivo Subido: abrir en visor protegido en una nueva pestaña (sin descarga directa)
       const docBox = document.getElementById('player-document-box');
       const docBtn = document.getElementById('player-document-btn');
       const docNameEl = document.getElementById('player-document-name');
 
       if (course.document_url && String(course.document_url).trim().length > 0) {
         docBox.style.display = 'flex';
-        docBtn.href = course.document_url;
-        docNameEl.textContent = course.document_name || 'Diapositivas y Resumen de la Clase';
+        const docTitle = course.document_name || course.title || 'Diapositivas y Resumen de la Clase';
+        docBtn.href = `document_viewer.html?url=${encodeURIComponent(course.document_url)}&title=${encodeURIComponent(docTitle)}`;
+        docNameEl.textContent = docTitle;
       } else {
         docBox.style.display = 'none';
         docBtn.href = '#';

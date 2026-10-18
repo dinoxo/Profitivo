@@ -7,24 +7,47 @@ export async function onRequestPost(context) {
 
   try {
     const url = new URL(request.url);
-    const filename = url.searchParams.get('filename') || ('video_' + Date.now() + '.mp4');
+    const filename = url.searchParams.get('filename') || ('asset_' + Date.now() + '.mp4');
     const cleanFilename = Date.now() + '_' + filename.replace(/[^a-zA-Z0-9_\.-]/g, '_');
 
+    // Leer el buffer binario completo para calcular Content-Length exacto (requerido por GitHub)
+    const buffer = await request.arrayBuffer();
+    if (!buffer || buffer.byteLength === 0) {
+      return new Response(JSON.stringify({ error: 'Archivo vacío o no recibido por el servidor.' }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+
     const uploadUrl = `https://uploads.github.com/repos/${OWNER}/${REPO}/releases/${RELEASE_ID}/assets?name=${encodeURIComponent(cleanFilename)}`;
+
+    const lowerName = filename.toLowerCase();
+    const contentType = request.headers.get('content-type') || (
+      lowerName.endsWith('.pdf') ? 'application/pdf' :
+      lowerName.endsWith('.pptx') ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation' :
+      lowerName.endsWith('.ppt') ? 'application/vnd.ms-powerpoint' :
+      lowerName.endsWith('.webm') ? 'video/webm' :
+      lowerName.endsWith('.mov') ? 'video/quicktime' :
+      'video/mp4'
+    );
 
     const ghRes = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GITHUB_TOKEN}`,
         'User-Agent': 'Profitivo-Uploader',
-        'Content-Type': request.headers.get('content-type') || 'video/mp4'
+        'Content-Type': contentType,
+        'Content-Length': String(buffer.byteLength)
       },
-      body: request.body
+      body: buffer
     });
 
     if (!ghRes.ok) {
       const errText = await ghRes.text();
-      return new Response(JSON.stringify({ error: errText, status: ghRes.status }), {
+      return new Response(JSON.stringify({ error: 'GitHub Upload Error: ' + errText, status: ghRes.status }), {
         status: ghRes.status,
         headers: {
           'Content-Type': 'application/json',

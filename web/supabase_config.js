@@ -1577,7 +1577,7 @@ const ProfitivoAPI = {
     if (!file) return '';
     const filename = file.name || ('file_' + Date.now());
 
-    // 1. Intentar a través del proxy de Cloudflare Pages Function (GitHub Releases, hasta 2GB por archivo)
+    // 1. Intentar a través del proxy oficial de Cloudflare Pages Function (GitHub Releases)
     try {
       const res = await fetch(`/api/upload-video?filename=${encodeURIComponent(filename)}`, {
         method: 'POST',
@@ -1589,45 +1589,49 @@ const ProfitivoAPI = {
       if (res.ok) {
         const data = await res.json();
         if (data.video_url) return data.video_url;
+      } else {
+        const errJson = await res.json().catch(() => null);
+        console.warn("Proxy upload error response:", errJson);
       }
     } catch (e) {
       console.warn("Proxy upload error, intentando subida directa:", e);
     }
 
-    // 2. Subida directa a GitHub API (Contents API en puneta29/profitivo-videos)
-    try {
-      const cleanName = Date.now() + '_' + filename.replace(/[^a-zA-Z0-9_\.-]/g, '_');
-      const reader = new FileReader();
-      const base64Promise = new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+    // 2. Subida directa a GitHub API (Contents API en puneta29/profitivo-videos) para archivos < 25MB
+    if (file.size && file.size < 25 * 1024 * 1024) {
+      try {
+        const cleanName = Date.now() + '_' + filename.replace(/[^a-zA-Z0-9_\.-]/g, '_');
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
 
-      const b64 = await base64Promise;
-      const ghRes = await fetch(`https://api.github.com/repos/puneta29/profitivo-videos/contents/media/${cleanName}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${PROFITIVO_CLOUD_CONFIG.GITHUB_TOKEN}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: 'Upload lesson asset: ' + cleanName,
-          content: b64
-        })
-      });
+        const b64 = await base64Promise;
+        const ghRes = await fetch(`https://api.github.com/repos/puneta29/profitivo-videos/contents/media/${cleanName}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${PROFITIVO_CLOUD_CONFIG.GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: 'Upload lesson asset: ' + cleanName,
+            content: b64
+          })
+        });
 
-      if (ghRes.ok) {
-        const ghData = await ghRes.json();
-        return ghData.content.download_url;
+        if (ghRes.ok) {
+          const ghData = await ghRes.json();
+          return ghData.content.download_url;
+        }
+      } catch (e) {
+        console.warn("GitHub contents API error:", e);
       }
-    } catch (e) {
-      console.warn("GitHub contents API error:", e);
     }
 
-    // 3. Fallback de enlace local temporal si no hay conexión
-    return URL.createObjectURL(file);
+    throw new Error(`No se pudo subir el archivo "${filename}" a la nube. Por favor verifica tu conexión o el peso del archivo e inténtalo de nuevo.`);
   },
 
   uploadVideoToGitHub: async (videoFile) => {
