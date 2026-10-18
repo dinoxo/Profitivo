@@ -15,10 +15,17 @@ export async function onRequestGet(context) {
   }
 
   try {
+    const fetchHeaders = {
+      'User-Agent': 'Profitivo-DocViewer'
+    };
+
+    const rangeHeader = request.headers.get('range');
+    if (rangeHeader) {
+      fetchHeaders['Range'] = rangeHeader;
+    }
+
     const upstreamRes = await fetch(targetUrl, {
-      headers: {
-        'User-Agent': 'Profitivo-DocViewer'
-      },
+      headers: fetchHeaders,
       redirect: 'follow'
     });
 
@@ -32,8 +39,14 @@ export async function onRequestGet(context) {
     responseHeaders.set('Content-Type', contentType);
     responseHeaders.set('Content-Disposition', 'inline');
     responseHeaders.set('Access-Control-Allow-Origin', '*');
+    responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    responseHeaders.set('Access-Control-Allow-Headers', 'Range, Authorization, Content-Type');
+    responseHeaders.set('Accept-Ranges', 'bytes');
     responseHeaders.set('Cache-Control', 'public, max-age=86400');
 
+    if (upstreamRes.headers.get('content-range')) {
+      responseHeaders.set('Content-Range', upstreamRes.headers.get('content-range'));
+    }
     if (upstreamRes.headers.get('content-length')) {
       responseHeaders.set('Content-Length', upstreamRes.headers.get('content-length'));
     }
@@ -53,7 +66,7 @@ export async function onRequestOptions() {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Authorization, Content-Type'
+      'Access-Control-Allow-Headers': 'Range, Authorization, Content-Type'
     }
   });
 }
