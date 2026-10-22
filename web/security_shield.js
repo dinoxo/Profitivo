@@ -160,6 +160,17 @@
 
   // Comprobar apertura de DevTools por desfase de dimensiones (acoplado)
   function checkDevToolsDimensions() {
+    // Excluir dispositivos móviles y pantallas táctiles: en móviles la barra de direcciones del navegador
+    // (Chrome/Safari) y la barra de navegación del sistema generan diferencias naturales de altura que no son DevTools.
+    const isMobileOrTouch = ('ontouchstart' in window) ||
+                            (navigator.maxTouchPoints > 0) ||
+                            /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '') ||
+                            window.innerWidth <= 820;
+    if (isMobileOrTouch) {
+      setDevToolsBlocked(false);
+      return;
+    }
+
     const threshold = 160;
     const widthDiff = window.outerWidth - window.innerWidth > threshold;
     const heightDiff = window.outerHeight - window.innerHeight > threshold;

@@ -527,13 +527,41 @@ input:checked + .slider:before {
     gap: 10px !important;
   }
 
-  .btn {
-    padding: 10px 18px;
+  /* Solo botones de formulario principal o de bloque se expanden al 100% */
+  .btn-block,
+  form > button[type="submit"],
+  .modal-content form button[type="submit"] {
     width: 100%;
+  }
+
+  /* Los botones dentro de cajas de copia, tablas o barras de acción jamás se estiran al 100% */
+  .copy-box .btn,
+  .copy-box button,
+  .btn-inline,
+  button.btn-inline,
+  .btn-action {
+    width: auto !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  .btn {
+    padding: 10px 16px;
   }
 
   .btn-outline, .btn-primary, .btn-gold {
     justify-content: center;
+  }
+
+  /* Grillas en móvil que evitan desbordamiento en pantallas de 320px a 420px */
+  #grid-admin-methods,
+  #portal-payment-methods,
+  #grid-base-courses,
+  #grid-pro-courses,
+  #courses-grid,
+  #grid-public-news {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
   }
 
   /* Tablas en móvil */
@@ -541,6 +569,61 @@ input:checked + .slider:before {
     padding: 10px 12px;
     font-size: 0.82rem;
   }
+}
+
+/* ==============================================================================
+   COMPONENTES DE COPIA Y TABS RESPONSIVAS
+   ============================================================================== */
+.copy-box {
+  background: #060B14;
+  border: 1px solid var(--border-subtle);
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.copy-box .copy-text,
+.copyable-data {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.copy-box .btn,
+.copy-box button,
+.btn-inline {
+  width: auto !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* Tabs administrativas con desplazamiento táctil suave */
+.tabs-scrollable {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  padding-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tabs-scrollable::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs-scrollable .btn {
+  width: auto !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
 }
 
 /* Adaptabilidad para Tablets (769px a 1024px) */

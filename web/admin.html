@@ -94,7 +94,7 @@
     </div>
 
     <!-- Selector de Pestañas Administrativas -->
-    <div style="display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap;">
+    <div class="tabs-scrollable">
       <button id="btn-tab-pagos" class="btn btn-primary" onclick="switchAdminTab('pagos')">
         💳 Pagos por Revisar (<span id="pending-count">0</span>)
       </button>
@@ -211,7 +211,7 @@
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;" id="grid-admin-methods">
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 20px;" id="grid-admin-methods">
         <!-- Llenado dinámicamente -->
       </div>
     </div>
@@ -851,24 +851,34 @@
         badge.textContent = `🛡️ Administrador: @${currentAdmin.username}`;
       }
 
-      // Sincronización automática con la nube global
-      if (window.ProfitivoCloudDB) {
-        try {
-          await window.ProfitivoCloudDB.autoSync();
-        } catch (e) {
-          console.warn("Fallo sincronización nube en inicio:", e);
-        }
-      }
-
-      await loadCategoriesIntoSelect();
-      allCoursesCache = await window.ProfitivoAPI.getCourses();
-      await updateDashboardMetrics();
-      await loadPendingOrders();
-      loadUsersDirectory();
+      // 1. Renderizado ultrarrápido inmediato desde caché local (0 ms de espera en celular)
       loadAdminMethods();
+      loadUsersDirectory();
       loadAdminCourses();
       loadAdminNews();
       loadRecoveryRequests();
+      updateDashboardMetrics();
+      loadPendingOrders();
+
+      // 2. Sincronización transparente en segundo plano con la nube
+      (async () => {
+        if (window.ProfitivoCloudDB) {
+          try {
+            await window.ProfitivoCloudDB.autoSync();
+          } catch (e) {
+            console.warn("Fallo sincronización nube en inicio:", e);
+          }
+        }
+        await loadCategoriesIntoSelect();
+        allCoursesCache = await window.ProfitivoAPI.getCourses();
+        await updateDashboardMetrics();
+        await loadPendingOrders(true);
+        loadUsersDirectory();
+        loadAdminMethods(true);
+        loadAdminCourses(true);
+        loadAdminNews(true);
+        loadRecoveryRequests();
+      })();
 
       // Poller automático en tiempo real cada 6 segundos para administradores
       if (!window._adminOrdersPoller) {
@@ -1353,18 +1363,18 @@
               </div>
               <span class="badge badge-green">${m.currency}</span>
             </div>
-            <div style="background: #060B14; border: 1px solid var(--border-subtle); padding: 8px 10px; border-radius: 6px; margin: 10px 0 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-              <span class="copyable-data" style="font-family: monospace; font-size: 0.82rem; color: #fff; word-break: break-all; flex: 1; user-select: all;">
+            <div class="copy-box" style="margin: 10px 0 8px;">
+              <span class="copyable-data copy-text" style="font-family: monospace; font-size: 0.85rem; color: #fff; user-select: all; font-weight: 600;">
                 ${escapeHtmlAttr(m.account_identifier)}
               </span>
-              <button type="button" class="btn btn-outline" onclick="copyValue('${escapeHtmlAttr(m.account_identifier)}', this)" title="Copiar identificador / wallet" style="padding: 3px 8px; font-size: 0.72rem; flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;">
+              <button type="button" class="btn btn-outline btn-inline" onclick="copyValue('${escapeHtmlAttr(m.account_identifier)}', this)" title="Copiar identificador / wallet" style="padding: 4px 10px; font-size: 0.75rem; flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; border-color: var(--green-neon); color: var(--green-neon);">
                 <span>📋</span> <span>Copiar</span>
               </button>
             </div>
             <p style="font-size: 0.8rem; color: var(--text-muted); min-height: 36px;">${m.instructions || 'Sin notas adicionales'}</p>
-            <div style="display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end;">
-              <button class="btn btn-outline" style="padding: 4px 12px; font-size: 0.78rem;" onclick="openEditMethodModal('${m.id}')">✏️ Editar</button>
-              <button class="btn btn-danger" style="padding: 4px 10px; font-size: 0.78rem;" onclick="handleDeleteMethod('${m.id}', '${m.title}')">🗑️ Eliminar</button>
+            <div style="display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; flex-wrap: wrap;">
+              <button class="btn btn-outline btn-inline" style="padding: 5px 12px; font-size: 0.78rem;" onclick="openEditMethodModal('${m.id}')">✏️ Editar</button>
+              <button class="btn btn-danger btn-inline" style="padding: 5px 10px; font-size: 0.78rem;" onclick="handleDeleteMethod('${m.id}', '${m.title}')">🗑️ Eliminar</button>
             </div>
           </div>
         `;

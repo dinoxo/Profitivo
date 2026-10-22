@@ -89,8 +89,8 @@
                     <span style="font-size: 0.72rem; color: var(--green-neon);">Pega con 1 clic</span>
                   </label>
                   <div style="display: flex; gap: 8px;">
-                    <input type="text" id="rep-ref" class="form-input" required placeholder="ej. 8839201" style="flex: 1;">
-                    <button type="button" class="btn btn-outline" onclick="pasteRefVal('rep-ref', this)" title="Pegar número de referencia del portapapeles" style="padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; border-color: var(--green-neon); color: var(--green-neon); white-space: nowrap;">
+                    <input type="text" id="rep-ref" class="form-input" required placeholder="ej. 8839201" style="flex: 1; min-width: 0;">
+                    <button type="button" class="btn btn-outline btn-inline" onclick="pasteRefVal('rep-ref', this)" title="Pegar número de referencia del portapapeles" style="padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; border-color: var(--green-neon); color: var(--green-neon); white-space: nowrap; flex-shrink: 0; width: auto;">
                       <span>📥</span> <span>Pegar</span>
                     </button>
                   </div>
@@ -107,8 +107,8 @@
                     <span style="font-size: 0.72rem; color: var(--green-neon);">Copia con 1 clic</span>
                   </label>
                   <div style="display: flex; gap: 8px;">
-                    <input type="text" id="rep-amount" class="form-input" readonly value="$50.00 USDT" style="background: rgba(255, 255, 255, 0.04); cursor: not-allowed; font-weight: 700; color: var(--green-neon); border-color: rgba(0, 255, 136, 0.3); flex: 1;">
-                    <button type="button" class="btn btn-outline" onclick="copyAmountVal('rep-amount', this)" title="Copiar monto numérico a transferir" style="padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 5px; border-color: var(--green-neon); color: var(--green-neon); white-space: nowrap;">
+                    <input type="text" id="rep-amount" class="form-input" readonly value="$50.00 USDT" style="background: rgba(255, 255, 255, 0.04); cursor: not-allowed; font-weight: 700; color: var(--green-neon); border-color: rgba(0, 255, 136, 0.3); flex: 1; min-width: 0;">
+                    <button type="button" class="btn btn-outline btn-inline" onclick="copyAmountVal('rep-amount', this)" title="Copiar monto numérico a transferir" style="padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 5px; border-color: var(--green-neon); color: var(--green-neon); white-space: nowrap; flex-shrink: 0; width: auto;">
                       <span>📋</span> <span>Copiar</span>
                     </button>
                   </div>
@@ -292,8 +292,8 @@
             <span style="font-size: 0.72rem; color: var(--gold-prestige);">Copia con 1 clic</span>
           </label>
           <div style="display: flex; gap: 8px;">
-            <input type="text" id="unlock-amount" class="form-input" readonly style="background: rgba(255, 255, 255, 0.04); cursor: not-allowed; font-weight: 700; color: var(--gold-prestige); border-color: rgba(255, 215, 0, 0.3); flex: 1;">
-            <button type="button" class="btn btn-outline" onclick="copyAmountVal('unlock-amount', this)" title="Copiar monto numérico del curso" style="padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; border-color: var(--gold-prestige); color: var(--gold-prestige); white-space: nowrap;">
+            <input type="text" id="unlock-amount" class="form-input" readonly style="background: rgba(255, 255, 255, 0.04); cursor: not-allowed; font-weight: 700; color: var(--gold-prestige); border-color: rgba(255, 215, 0, 0.3); flex: 1; min-width: 0;">
+            <button type="button" class="btn btn-outline btn-inline" onclick="copyAmountVal('unlock-amount', this)" title="Copiar monto numérico del curso" style="padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; border-color: var(--gold-prestige); color: var(--gold-prestige); white-space: nowrap; flex-shrink: 0; width: auto;">
               <span>📋</span> <span>Copiar</span>
             </button>
           </div>
@@ -305,8 +305,8 @@
             <span style="font-size: 0.72rem; color: var(--gold-prestige);">Pega con 1 clic</span>
           </label>
           <div style="display: flex; gap: 8px;">
-            <input type="text" id="unlock-ref" class="form-input" required placeholder="ej. 994012" style="flex: 1;">
-            <button type="button" class="btn btn-outline" onclick="pasteRefVal('unlock-ref', this)" title="Pegar número de referencia del portapapeles" style="padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; border-color: var(--gold-prestige); color: var(--gold-prestige); white-space: nowrap;">
+            <input type="text" id="unlock-ref" class="form-input" required placeholder="ej. 994012" style="flex: 1; min-width: 0;">
+            <button type="button" class="btn btn-outline btn-inline" onclick="pasteRefVal('unlock-ref', this)" title="Pegar número de referencia del portapapeles" style="padding: 0 14px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; border-color: var(--gold-prestige); color: var(--gold-prestige); white-space: nowrap; flex-shrink: 0; width: auto;">
               <span>📥</span> <span>Pegar</span>
             </button>
           </div>
@@ -448,21 +448,24 @@
         document.getElementById('user-badge').textContent = `Estudiante: @${currentUser.username}`;
       }
 
-      // Sincronizar cursos y accesos desde la nube mundial
-      if (window.ProfitivoCloudDB) {
-        try {
-          await window.ProfitivoCloudDB.fetchCloud(true);
-        } catch (e) {
-          console.warn("Fallo sincronización nube portal:", e);
+      // 1. Renderizado ultrarrápido inmediato desde caché local (0 ms de espera en celular)
+      renderPaymentMethods();
+      updateLivePrices();
+      refreshUserState();
+
+      // 2. Sincronización en segundo plano con la nube
+      (async () => {
+        if (window.ProfitivoCloudDB) {
+          try {
+            await window.ProfitivoCloudDB.fetchCloud(true);
+          } catch (e) {
+            console.warn("Fallo sincronización nube portal:", e);
+          }
         }
-      }
-
-      // Cargar métodos de pago y precio oficial de membresía
-      await updateLivePrices(true);
-      await renderPaymentMethods(true);
-
-      // Verificar estado de membresía
-      await refreshUserState();
+        await updateLivePrices(true);
+        await renderPaymentMethods(true);
+        await refreshUserState();
+      })();
 
       // Poller automático continuo cada 6 segundos para sincronizar en tiempo real:
       // 1. Precios de membresía y cursos si el admin los cambia
@@ -583,32 +586,32 @@
                 </div>
 
                 <!-- Bloque del Número de Cuenta / Dirección de Wallet con botón Copiar -->
-                <div style="background: #0B1322; border: 1px solid rgba(0, 230, 118, 0.3); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div style="background: #0B1322; border: 1px solid rgba(0, 230, 118, 0.3); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0;">
                   <div style="flex: 1; min-width: 0;">
                     <div style="font-size: 0.68rem; color: var(--green-neon); text-transform: uppercase; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.5px;">
                       🔑 Cuenta / Wallet / Teléfono:
                     </div>
-                    <div class="copyable-data" style="font-family: monospace; font-size: 0.88rem; color: #fff; word-break: break-all; user-select: all; font-weight: 600;">
+                    <div class="copyable-data copy-text" style="font-family: monospace; font-size: 0.88rem; color: #fff; overflow-wrap: anywhere; word-break: break-word; user-select: all; font-weight: 600;">
                       ${escapeHtmlAttr(m.account_identifier)}
                     </div>
                   </div>
-                  <button type="button" class="btn btn-primary" onclick="copyValue('${escapeJs(m.account_identifier)}', this)" title="Copiar número de cuenta / wallet" style="padding: 7px 12px; font-size: 0.8rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 0 10px rgba(0,230,118,0.25);">
+                  <button type="button" class="btn btn-primary btn-inline" onclick="copyValue('${escapeJs(m.account_identifier)}', this)" title="Copiar número de cuenta / wallet" style="padding: 7px 12px; font-size: 0.8rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 0 10px rgba(0,230,118,0.25); width: auto;">
                     <span>📋</span> <span>Copiar</span>
                   </button>
                 </div>
 
                 <!-- Bloque de Instrucciones con botón Copiar (si existen) -->
                 ${m.instructions ? `
-                  <div style="background: rgba(255,255,255,0.02); border: 1px dashed var(--border-subtle); border-radius: 8px; padding: 8px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+                  <div style="background: rgba(255,255,255,0.02); border: 1px dashed var(--border-subtle); border-radius: 8px; padding: 8px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0;">
                     <div style="flex: 1; min-width: 0;">
                       <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 2px;">
                         📝 Instrucciones:
                       </div>
-                      <div class="copyable-data" style="font-size: 0.82rem; color: var(--text-secondary); word-break: break-word; user-select: text;">
+                      <div class="copyable-data copy-text" style="font-size: 0.82rem; color: var(--text-secondary); overflow-wrap: anywhere; word-break: break-word; user-select: text;">
                         ${escapeHtmlAttr(m.instructions)}
                       </div>
                     </div>
-                    <button type="button" class="btn btn-outline" onclick="copyValue('${escapeJs(m.instructions)}', this)" title="Copiar instrucciones" style="padding: 4px 8px; font-size: 0.75rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;">
+                    <button type="button" class="btn btn-outline btn-inline" onclick="copyValue('${escapeJs(m.instructions)}', this)" title="Copiar instrucciones" style="padding: 4px 8px; font-size: 0.75rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; width: auto;">
                       <span>📋</span> <span>Copiar</span>
                     </button>
                   </div>
@@ -715,31 +718,31 @@
             <span class="badge badge-green" style="font-size: 0.72rem; padding: 2px 8px;">${escapeHtmlAttr(m.currency)}</span>
           </div>
 
-          <div style="background: #0B1322; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <div style="background: #0B1322; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0;">
             <div style="flex: 1; min-width: 0;">
               <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 2px;">
                 🔑 Datos / Wallet / Cuenta:
               </div>
-              <div class="copyable-data" style="font-family: monospace; font-size: 0.88rem; color: #fff; word-break: break-all; user-select: all; font-weight: 600;">
+              <div class="copyable-data copy-text" style="font-family: monospace; font-size: 0.88rem; color: #fff; overflow-wrap: anywhere; word-break: break-word; user-select: all; font-weight: 600;">
                 ${escapeHtmlAttr(m.account_identifier)}
               </div>
             </div>
-            <button type="button" class="btn btn-primary" onclick="copyValue('${safeId}', this)" title="Copiar datos de wallet o cuenta" style="padding: 6px 12px; font-size: 0.8rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 0 10px rgba(0,230,118,0.25);">
+            <button type="button" class="btn btn-primary btn-inline" onclick="copyValue('${safeId}', this)" title="Copiar datos de wallet o cuenta" style="padding: 6px 12px; font-size: 0.8rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 0 10px rgba(0,230,118,0.25); width: auto;">
               <span>📋</span> <span>Copiar</span>
             </button>
           </div>
 
           ${m.instructions ? `
-            <div style="background: rgba(255,255,255,0.02); border: 1px dashed var(--border-subtle); border-radius: 6px; padding: 8px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;">
+            <div style="background: rgba(255,255,255,0.02); border: 1px dashed var(--border-subtle); border-radius: 6px; padding: 8px 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; min-width: 0;">
               <div style="flex: 1; min-width: 0;">
                 <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 2px;">
                   📝 Instrucciones:
                 </div>
-                <div class="copyable-data" style="font-size: 0.82rem; color: var(--text-secondary); word-break: break-word; user-select: text;">
+                <div class="copyable-data copy-text" style="font-size: 0.82rem; color: var(--text-secondary); overflow-wrap: anywhere; word-break: break-word; user-select: text;">
                   ${escapeHtmlAttr(m.instructions)}
                 </div>
               </div>
-              <button type="button" class="btn btn-outline" onclick="copyValue('${safeInstructions}', this)" title="Copiar instrucciones" style="padding: 4px 8px; font-size: 0.75rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;">
+              <button type="button" class="btn btn-outline btn-inline" onclick="copyValue('${safeInstructions}', this)" title="Copiar instrucciones" style="padding: 4px 8px; font-size: 0.75rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; width: auto;">
                 <span>📋</span> <span>Copiar</span>
               </button>
             </div>
