@@ -44,7 +44,8 @@ let memoryDb = null;
 let memorySha = null;
 let memoryTimestamp = 0;
 
-async function fetchFromGitHub(force = false) {
+async function fetchFromGitHub(force = false, token = null) {
+  const activeToken = token || GITHUB_TOKEN;
   if (!force && memoryDb && (Date.now() - memoryTimestamp < 45000)) {
     return { sha: memorySha, data: memoryDb };
   }
@@ -52,7 +53,7 @@ async function fetchFromGitHub(force = false) {
   const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${FILE_PATH}`;
   const res = await fetch(url, {
     headers: {
-      'Authorization': `Bearer ${GITHUB_TOKEN}`,
+      'Authorization': `Bearer ${activeToken}`,
       'Accept': 'application/vnd.github.v3+json',
       'User-Agent': 'Profitivo-Cloudflare-Worker',
       'Cache-Control': 'no-cache'
@@ -467,9 +468,10 @@ function applyActionToDb(db, action, payload) {
   }
 }
 
-async function writeToGitHubWithRetry(action, payload, maxRetries = 3) {
+async function writeToGitHubWithRetry(action, payload, maxRetries = 3, token = null) {
+  const activeToken = token || GITHUB_TOKEN;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const current = await fetchFromGitHub(true);
+    const current = await fetchFromGitHub(true, activeToken);
     let db = current.data || {
       version: 1,
       courses: [],
@@ -498,7 +500,7 @@ async function writeToGitHubWithRetry(action, payload, maxRetries = 3) {
     const res = await fetch(url, {
       method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${GITHUB_TOKEN}`,
+        'Authorization': `Bearer ${activeToken}`,
         'Accept': 'application/vnd.github.v3+json',
         'Content-Type': 'application/json',
         'User-Agent': 'Profitivo-Cloudflare-Worker'
@@ -516,8 +518,9 @@ async function writeToGitHubWithRetry(action, payload, maxRetries = 3) {
     }
 
     if (res.status === 409 && attempt < maxRetries) {
-      // Conflicto de SHA concurrente: reintentar con el SHA más reciente
-      await new Promise(r => setTimeout(r, 250 * attempt));
+      // Conflicto de SHA concurrente: reintentar con jitter aleatorio para no volver a colisionar
+      const delay = Math.floor(Math.random() * 250) + (300 * attempt);
+      await new Promise(r => setTimeout(r, delay));
       continue;
     }
 
@@ -530,7 +533,8 @@ export async function onRequestGet(context) {
   try {
     const url = new URL(context.request.url);
     const force = url.searchParams.get('_force') === 'true';
-    const result = await fetchFromGitHub(force);
+    const token = context.env?.GITHUB_TOKEN || GITHUB_TOKEN;
+    const result = await fetchFromGitHub(force, token);
     return new Response(JSON.stringify({ success: true, data: result.data, sha: result.sha }), {
       status: 200,
       headers: CORS_HEADERS
@@ -547,8 +551,9 @@ export async function onRequestPost(context) {
   try {
     const body = await context.request.json();
     const { action, payload } = body;
+    const token = context.env?.GITHUB_TOKEN || GITHUB_TOKEN;
 
-    const updatedDb = await writeToGitHubWithRetry(action, payload);
+    const updatedDb = await writeToGitHubWithRetry(action, payload, 3, token);
 
     return new Response(JSON.stringify({ success: true, data: updatedDb }), {
       status: 200,

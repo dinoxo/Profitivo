@@ -462,26 +462,35 @@
             console.warn("Fallo sincronización nube portal:", e);
           }
         }
-        await updateLivePrices(true);
-        await renderPaymentMethods(true);
+        await updateLivePrices(false);
+        await renderPaymentMethods(false);
         await refreshUserState();
       })();
 
-      // Poller automático continuo cada 6 segundos para sincronizar en tiempo real:
-      // 1. Precios de membresía y cursos si el admin los cambia
-      // 2. Estado de aprobación si el estudiante tiene pagos pendientes
-      // 3. Métodos de pago en vivo
-      if (!window._portalGlobalPoller) {
-        window._portalGlobalPoller = setInterval(async () => {
-          try {
-            await updateLivePrices(true);
-            await renderPaymentMethods(true);
-            if (currentUser && !currentUser.is_lifetime_active) {
-              await refreshUserState();
-            }
-          } catch (e) {}
-        }, 6000);
+      // Sincronización inteligente del portal (cada 45 segundos y al enfocar pestaña)
+      async function syncPortalLiveState() {
+        if (document.hidden) return; // Pausa automática si la pestaña está en segundo plano o el celular bloqueado
+        try {
+          if (window.ProfitivoCloudDB) {
+            await window.ProfitivoCloudDB.fetchCloud(false);
+          }
+          await updateLivePrices(false);
+          await renderPaymentMethods(false);
+          if (currentUser && !currentUser.is_lifetime_active) {
+            await refreshUserState();
+          }
+        } catch (e) {}
       }
+
+      if (!window._portalGlobalPoller) {
+        window._portalGlobalPoller = setInterval(syncPortalLiveState, 45000);
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          syncPortalLiveState();
+        }
+      });
     });
 
     async function updateLivePrices(force = false) {

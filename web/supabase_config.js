@@ -77,8 +77,8 @@ const ProfitivoCloudDB = {
   fetchCloud: async function(force = false) {
     this._initCache();
 
-    // Stale-While-Revalidate: Si tenemos datos en caché actualizados hace menos de 5 segundos y no es force, retornar de inmediato
-    if (!force && this._cache && (Date.now() - this._lastUpdated < 5000)) {
+    // Stale-While-Revalidate: Si tenemos datos en caché actualizados hace menos de 25 segundos y no es force, retornar de inmediato
+    if (!force && this._cache && (Date.now() - this._lastUpdated < 25000)) {
       return this._cache;
     }
 
@@ -564,6 +564,10 @@ const ProfitivoCloudDB = {
       console.warn("Fallo fallback directo GitHub:", err2);
     }
     return null;
+  },
+
+  autoSync: async function(force = false) {
+    return await this.fetchCloud(force);
   },
 
   initWebCloud: async function() {

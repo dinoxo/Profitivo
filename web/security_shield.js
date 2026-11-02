@@ -90,11 +90,12 @@
     window.console.trace = noop;
     // Dejar un mensaje disuasivo en caso de que alguien fuerce la consola
     setInterval(function() {
+      if (document.hidden) return;
       try {
         originalConsole.clear();
         originalConsole.log("%c🛡️ PROFITIVO SECURITY SHIELD ACTIVE%c\nEl modo desarrollador y la extracción de código están estrictamente protegidos.", "color: #00FF88; font-size: 16px; font-weight: bold;", "color: #E2E8F0; font-size: 12px;");
       } catch (e) {}
-    }, 2500);
+    }, 12000);
   } catch (e) {}
 
   // 4. Detección Activa de Apertura de DevTools y Bloqueo en Pantalla
@@ -182,20 +183,23 @@
   }
 
   window.addEventListener('resize', checkDevToolsDimensions);
-  setInterval(checkDevToolsDimensions, 800);
-
-  // Trampa de temporizador para DevTools flotante o desacoplado
   setInterval(function() {
+    if (!document.hidden) checkDevToolsDimensions();
+  }, 2500);
+
+  // Trampa de temporizador para DevTools flotante o desacoplado con umbral seguro anti-lags
+  setInterval(function() {
+    if (document.hidden) return;
     const start = performance.now();
     // Invocación dinámica de debugger protegida
     try {
       (function() {}).constructor("debugger")();
     } catch(e) {}
     const diff = performance.now() - start;
-    if (diff > 120) {
+    if (diff > 300) {
       setDevToolsBlocked(true);
     }
-  }, 1200);
+  }, 4000);
 
   // 5. Evitar arrastrar imágenes o elementos para inspeccionarlos
   document.addEventListener('dragstart', function(e) {

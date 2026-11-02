@@ -1,6 +1,6 @@
 export async function onRequestPost(context) {
-  const { request } = context;
-  const GITHUB_TOKEN = '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';
+  const { request, env } = context;
+  const GITHUB_TOKEN = env?.GITHUB_TOKEN || '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';
   const OWNER = 'puneta29';
   const REPO = 'profitivo-videos';
   const RELEASE_ID = 412080522;

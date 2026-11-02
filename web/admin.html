@@ -864,31 +864,43 @@
       (async () => {
         if (window.ProfitivoCloudDB) {
           try {
-            await window.ProfitivoCloudDB.autoSync();
+            await window.ProfitivoCloudDB.fetchCloud(true);
           } catch (e) {
             console.warn("Fallo sincronización nube en inicio:", e);
           }
         }
         await loadCategoriesIntoSelect();
-        allCoursesCache = await window.ProfitivoAPI.getCourses();
+        allCoursesCache = await window.ProfitivoAPI.getCourses(false);
         await updateDashboardMetrics();
-        await loadPendingOrders(true);
+        await loadPendingOrders(false);
         loadUsersDirectory();
-        loadAdminMethods(true);
-        loadAdminCourses(true);
-        loadAdminNews(true);
+        loadAdminMethods(false);
+        loadAdminCourses(false);
+        loadAdminNews(false);
         loadRecoveryRequests();
       })();
 
-      // Poller automático en tiempo real cada 6 segundos para administradores
-      if (!window._adminOrdersPoller) {
-        window._adminOrdersPoller = setInterval(async () => {
-          try {
-            await loadPendingOrders(true);
-            await updateDashboardMetrics();
-          } catch (e) {}
-        }, 6000);
+      // Sincronización automática inteligente para administradores (cada 30 segundos y al enfocar pestaña)
+      async function syncAdminLiveState() {
+        if (document.hidden) return; // Pausa automática si la pestaña está en segundo plano
+        try {
+          if (window.ProfitivoCloudDB) {
+            await window.ProfitivoCloudDB.fetchCloud(false);
+          }
+          await loadPendingOrders(false);
+          await updateDashboardMetrics();
+        } catch (e) {}
       }
+
+      if (!window._adminOrdersPoller) {
+        window._adminOrdersPoller = setInterval(syncAdminLiveState, 30000);
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          syncAdminLiveState();
+        }
+      });
       window.addEventListener('focus', () => {
         document.title = 'Panel de Administración | Profitivo';
       });
@@ -1073,7 +1085,7 @@
         if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast("¡Pago aprobado! Acceso concedido exitosamente.");
         if (knownPendingOrderIds) knownPendingOrderIds.delete(id);
-        await loadPendingOrders(true);
+        await loadPendingOrders(false);
         await updateDashboardMetrics();
         loadUsersDirectory();
       } catch (err) {
@@ -1091,7 +1103,7 @@
         if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
         showToast("Pago marcado como rechazado.");
         if (knownPendingOrderIds) knownPendingOrderIds.delete(id);
-        await loadPendingOrders(true);
+        await loadPendingOrders(false);
         await updateDashboardMetrics();
       } catch (err) {
         if (window.ProfitivoUI) window.ProfitivoUI.hideLoading();
