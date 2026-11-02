@@ -591,9 +591,7 @@
                     <div style="font-size: 0.68rem; color: var(--green-neon); text-transform: uppercase; font-weight: bold; margin-bottom: 3px; letter-spacing: 0.5px;">
                       🔑 Cuenta / Wallet / Teléfono:
                     </div>
-                    <div class="copyable-data copy-text" style="font-family: monospace; font-size: 0.88rem; color: #fff; overflow-wrap: anywhere; word-break: break-word; user-select: all; font-weight: 600;">
-                      ${escapeHtmlAttr(m.account_identifier)}
-                    </div>
+                    <div class="copyable-data copy-text" style="font-family: monospace; font-size: 0.88rem; color: #fff; overflow-wrap: anywhere; word-break: break-word; user-select: all; font-weight: 600;">${escapeHtmlAttr(m.account_identifier)}</div>
                   </div>
                   <button type="button" class="btn btn-primary btn-inline" onclick="copyValue('${escapeJs(m.account_identifier)}', this)" title="Copiar número de cuenta / wallet" style="padding: 7px 12px; font-size: 0.8rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 0 10px rgba(0,230,118,0.25); width: auto;">
                     <span>📋</span> <span>Copiar</span>
@@ -607,9 +605,7 @@
                       <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 2px;">
                         📝 Instrucciones:
                       </div>
-                      <div class="copyable-data copy-text" style="font-size: 0.82rem; color: var(--text-secondary); overflow-wrap: anywhere; word-break: break-word; user-select: text;">
-                        ${escapeHtmlAttr(m.instructions)}
-                      </div>
+                      <div class="copyable-data copy-text" style="font-size: 0.82rem; color: var(--text-secondary); overflow-wrap: anywhere; word-break: break-word; user-select: text;">${escapeHtmlAttr(m.instructions)}</div>
                     </div>
                     <button type="button" class="btn btn-outline btn-inline" onclick="copyValue('${escapeJs(m.instructions)}', this)" title="Copiar instrucciones" style="padding: 4px 8px; font-size: 0.75rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; width: auto;">
                       <span>📋</span> <span>Copiar</span>
@@ -723,9 +719,7 @@
               <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 2px;">
                 🔑 Datos / Wallet / Cuenta:
               </div>
-              <div class="copyable-data copy-text" style="font-family: monospace; font-size: 0.88rem; color: #fff; overflow-wrap: anywhere; word-break: break-word; user-select: all; font-weight: 600;">
-                ${escapeHtmlAttr(m.account_identifier)}
-              </div>
+              <div class="copyable-data copy-text" style="font-family: monospace; font-size: 0.88rem; color: #fff; overflow-wrap: anywhere; word-break: break-word; user-select: all; font-weight: 600;">${escapeHtmlAttr(m.account_identifier)}</div>
             </div>
             <button type="button" class="btn btn-primary btn-inline" onclick="copyValue('${safeId}', this)" title="Copiar datos de wallet o cuenta" style="padding: 6px 12px; font-size: 0.8rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 0 10px rgba(0,230,118,0.25); width: auto;">
               <span>📋</span> <span>Copiar</span>
@@ -738,9 +732,7 @@
                 <div style="font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 2px;">
                   📝 Instrucciones:
                 </div>
-                <div class="copyable-data copy-text" style="font-size: 0.82rem; color: var(--text-secondary); overflow-wrap: anywhere; word-break: break-word; user-select: text;">
-                  ${escapeHtmlAttr(m.instructions)}
-                </div>
+                <div class="copyable-data copy-text" style="font-size: 0.82rem; color: var(--text-secondary); overflow-wrap: anywhere; word-break: break-word; user-select: text;">${escapeHtmlAttr(m.instructions)}</div>
               </div>
               <button type="button" class="btn btn-outline btn-inline" onclick="copyValue('${safeInstructions}', this)" title="Copiar instrucciones" style="padding: 4px 8px; font-size: 0.75rem; flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; width: auto;">
                 <span>📋</span> <span>Copiar</span>

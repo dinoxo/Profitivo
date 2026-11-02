@@ -1364,9 +1364,7 @@
               <span class="badge badge-green">${m.currency}</span>
             </div>
             <div class="copy-box" style="margin: 10px 0 8px;">
-              <span class="copyable-data copy-text" style="font-family: monospace; font-size: 0.85rem; color: #fff; user-select: all; font-weight: 600;">
-                ${escapeHtmlAttr(m.account_identifier)}
-              </span>
+              <span class="copyable-data copy-text" style="font-family: monospace; font-size: 0.85rem; color: #fff; user-select: all; font-weight: 600;">${escapeHtmlAttr(m.account_identifier)}</span>
               <button type="button" class="btn btn-outline btn-inline" onclick="copyValue('${escapeHtmlAttr(m.account_identifier)}', this)" title="Copiar identificador / wallet" style="padding: 4px 10px; font-size: 0.75rem; flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; border-color: var(--green-neon); color: var(--green-neon);">
                 <span>📋</span> <span>Copiar</span>
               </button>
